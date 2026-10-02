@@ -1,0 +1,58 @@
+Copyright 2025 Hemram
+
+This project is licensed under the Apache License, Version 2.0.
+You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0.
+
+It includes third-party components, listed below. Their full license texts, notices and required attributions can be found in the licenses/ directory.
+
+The following notices are included in accordance with the respective licenses:
+
+---
+
+JetBrains IntelliJ Platform v241.19416.19  
+Licensed under the Apache License, Version 2.0
+Modules used: core, core-impl, util  
+
+This software includes code from IntelliJ IDEA Community Edition
+Copyright (C) JetBrains s.r.o.
+https://www.jetbrains.com/idea/
+
+---
+
+JetBrains Java Decompiler FernFlower v243.22562.218
+Licensed under the Apache License, Version 2.0
+
+Copyright © 2014–2025 JetBrains s.r.o.
+https://www.jetbrains.com/
+
+---
+
+Kotlin Compiler & Analysis API v2.2.20-dev-2432 
+Licensed under the Apache License, Version 2.0
+Modules used: kotlin-compiler, analysis-api-k2-for-ide, analysis-api-for-ide, low-level-api-fir-for-ide, analysis-api-platform-interface-for-ide, symbol-light-classes-for-ide, analysis-api-impl-base-for-ide, kotlin-compiler-common-for-ide, kotlin-compiler-fir-for-ide  
+
+Copyright 2010-2024 JetBrains s.r.o and respective authors and developers
+
+---
+
+Eclipse LSP4J v0.24.0  
+
+This program and the accompanying materials are made available under the terms
+of the Eclipse Public License v. 2.0 which is available at
+https://www.eclipse.org/legal/epl-2.0, or the Eclipse Distribution License v1.0
+which is available at https://www.eclipse.org/org/documents/edl-v10.php.
+
+SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
+
+Eclipse LSP4J is a trademark of the Eclipse Foundation.
+
+---
+
+Kotlinx Serialization v1.8.0  
+Licensed under the Apache License, Version 2.0
+Modules used: core, protobuf
+
+Copyright 2017-2019 JetBrains s.r.o and respective authors and developers
+
+---
+

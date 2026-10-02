@@ -1,0 +1,121 @@
+{
+  "name": "kotlin-lsp-vscode",
+  "displayName": "Kotlin Language Server",
+  "description": "Kotlin language support powered by Kotlin Analysis API",
+  "version": "2.0.0",
+  "publisher": "hemram",
+  "license": "Apache-2.0",
+  "repository": {
+      "type": "git",
+      "url": "https://github.com/h4-mm-3r/kotlin-lsp"
+  },
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "kotlin",
+    "language-server",
+    "lsp"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+      "onLanguage:kotlin"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "kotlinLsp.restart",
+        "title": "Kotlin LSP: Restart LSP",
+        "category": "Kotlin LSP"
+      },
+      {
+          "command": "kotlinLsp.startTcpServer",
+          "title": "Kotlin LSP: Start TCP Server",          
+          "category": "Kotlin LSP"
+      }
+    ],
+    "languages": [
+      {
+        "id": "kotlin",
+        "aliases": [
+          "Kotlin",
+          "kotlin"
+        ],
+        "extensions": [
+          ".kt",
+          ".kts"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "kotlin",
+        "scopeName": "source.kotlin",
+        "path": "./syntaxes/kotlin.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Kotlin LSP",
+      "properties": {
+        "kotlinLsp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable Kotlin LSP"
+        },
+        "kotlinLsp.tcp.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Connect to an existing Kotlin LSP server over TCP instead of launching a process"
+        },
+        "kotlinLsp.tcp.host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "TCP host for the Kotlin LSP server (used when tcp.enabled is true)"
+        },
+        "kotlinLsp.tcp.port": {
+          "type": "number",
+          "default": 2090,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "TCP port for the Kotlin LSP server (used when tcp.enabled is true)"
+        },
+        "kotlinLsp.serverPath": {
+          "type": "string",
+          "description": "Path to the Kotlin LSP executable. If not set, will look for kotlin-lsp in PATH or use bundled version."
+        },
+        "kotlinLsp.javaHome": {
+          "type": "string",
+          "description": "Java home path for running the LSP server"
+        },
+        "kotlinLsp.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "verbose",
+          "description": "Traces the communication between VS Code and the language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "16.x",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^8.1.0"
+  }
+} 
