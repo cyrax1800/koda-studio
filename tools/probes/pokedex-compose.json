@@ -1,0 +1,13 @@
+[
+  { "kind": "diagnostics", "file": "feature/home/src/main/kotlin/com/skydoves/pokedex/compose/feature/home/HomeViewModel.kt" },
+  { "kind": "diagnostics", "file": "feature/home/src/main/kotlin/com/skydoves/pokedex/compose/feature/home/PokedexHome.kt" },
+  { "kind": "diagnostics", "file": "core/network/src/main/kotlin/com/skydoves/pokedex/compose/core/network/di/NetworkModule.kt" },
+  { "kind": "diagnostics", "file": "core/datastore/src/main/kotlin/com/skydoves/pokedex/compose/core/datastore/UserPreferencesSerializer.kt" },
+  { "kind": "diagnostics", "file": "core/model/src/main/kotlin/com/skydoves/pokedex/compose/core/model/Pokemon.kt" },
+  { "kind": "completion", "file": "feature/home/src/main/kotlin/com/skydoves/pokedex/compose/feature/home/HomeViewModel.kt", "find": "homeRepository.fetchPokemonList", "offset": 15, "expect": ["fetchPokemonList"] },
+  { "kind": "completion", "file": "core/network/src/main/kotlin/com/skydoves/pokedex/compose/core/network/di/NetworkModule.kt", "find": "BuildConfig.DEBUG", "offset": 12, "expect": ["DEBUG"] },
+  { "kind": "definition", "file": "feature/home/src/main/kotlin/com/skydoves/pokedex/compose/feature/home/HomeViewModel.kt", "find": "private val homeRepository: HomeRepository", "offset": 29 },
+  { "kind": "definition", "file": "feature/home/src/main/kotlin/com/skydoves/pokedex/compose/feature/home/HomeViewModel.kt", "find": "import androidx.lifecycle.ViewModel", "offset": 27 },
+  { "kind": "references", "file": "core/model/src/main/kotlin/com/skydoves/pokedex/compose/core/model/Pokemon.kt", "find": "data class Pokemon(", "offset": 11 },
+  { "kind": "hover", "file": "core/datastore/src/main/kotlin/com/skydoves/pokedex/compose/core/datastore/UserPreferencesSerializer.kt", "find": "UserPreferences.getDefaultInstance", "offset": 18 }
+]

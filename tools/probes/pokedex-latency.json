@@ -1,0 +1,16 @@
+[
+  { "kind": "diagnostics", "file": "feature/home/src/main/kotlin/com/skydoves/pokedex/compose/feature/home/HomeViewModel.kt" },
+  { "kind": "completion", "repeat": 5, "file": "feature/home/src/main/kotlin/com/skydoves/pokedex/compose/feature/home/HomeViewModel.kt", "find": "fun fetchNextPokemonList() {", "offset": 28, "insert": "\n    homeRepository.", "expect": ["fetchPokemonList"] },
+  { "kind": "completion", "repeat": 5, "file": "feature/home/src/main/kotlin/com/skydoves/pokedex/compose/feature/home/HomeViewModel.kt", "find": "fun fetchNextPokemonList() {", "offset": 28, "insert": "\n    Mut", "expect": ["MutableStateFlow"] },
+  { "kind": "parallel", "probes": [
+    { "kind": "references", "file": "core/model/src/main/kotlin/com/skydoves/pokedex/compose/core/model/Pokemon.kt", "find": "data class Pokemon(", "offset": 11 },
+    { "kind": "references", "file": "feature/home/src/main/kotlin/com/skydoves/pokedex/compose/feature/home/HomeViewModel.kt", "find": "class HomeViewModel", "offset": 6 },
+    { "kind": "completion", "file": "feature/home/src/main/kotlin/com/skydoves/pokedex/compose/feature/home/HomeViewModel.kt", "find": "fun fetchNextPokemonList() {", "offset": 28, "insert": "\n    homeRepository.", "expect": ["fetchPokemonList"] }
+  ] },
+  { "kind": "parallel", "probes": [
+    { "kind": "references", "file": "feature/home/src/main/kotlin/com/skydoves/pokedex/compose/feature/home/HomeViewModel.kt", "find": "val pokemonList", "offset": 4 },
+    { "kind": "references", "file": "feature/home/src/main/kotlin/com/skydoves/pokedex/compose/feature/home/HomeViewModel.kt", "find": "fun fetchNextPokemonList", "offset": 4 },
+    { "kind": "completion", "file": "feature/home/src/main/kotlin/com/skydoves/pokedex/compose/feature/home/HomeViewModel.kt", "find": "fun fetchNextPokemonList() {", "offset": 28, "insert": "\n    Mut", "expect": ["MutableStateFlow"] }
+  ] },
+  { "kind": "references", "file": "core/model/src/main/kotlin/com/skydoves/pokedex/compose/core/model/Pokemon.kt", "find": "data class Pokemon(", "offset": 11 }
+]

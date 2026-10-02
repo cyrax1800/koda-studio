@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.vsix
+server/*.jar
+sidecar/.gradle/
+sidecar/.kotlin/
+sidecar/build/
+.vscode-test/

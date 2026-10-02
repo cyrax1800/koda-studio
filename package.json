@@ -1,0 +1,166 @@
+{
+  "name": "android-bridge",
+  "displayName": "Android Bridge for Kotlin",
+  "description": "Android Gradle project support for the JetBrains Kotlin language server: correct project import, completion and references across modules, and a usages CodeLens.",
+  "version": "0.1.0",
+  "publisher": "android-bridge",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "android",
+    "kotlin",
+    "gradle"
+  ],
+  "activationEvents": [
+    "workspaceContains:settings.gradle",
+    "workspaceContains:settings.gradle.kts",
+    "workspaceContains:*/settings.gradle",
+    "workspaceContains:*/settings.gradle.kts",
+    "onLanguage:kotlin"
+  ],
+  "main": "./dist/extension.cjs",
+  "contributes": {
+    "commands": [
+      {
+        "command": "androidBridge.sync",
+        "title": "Sync Project with Gradle Files",
+        "category": "Android",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "androidBridge.selectVariant",
+        "title": "Select Build Variant",
+        "category": "Android"
+      },
+      {
+        "command": "androidBridge.generateSources",
+        "title": "Generate Sources (including KSP/kapt)",
+        "category": "Android"
+      },
+      {
+        "command": "androidBridge.showLog",
+        "title": "Show Sync Log",
+        "category": "Android"
+      },
+      {
+        "command": "androidBridge.openWorkspaceJson",
+        "title": "Open Generated workspace.json",
+        "category": "Android"
+      }
+    ],
+    "configuration": {
+      "title": "Android Bridge",
+      "properties": {
+        "androidBridge.gradle.javaHome": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "scope": "machine-overridable",
+          "markdownDescription": "JDK used to run the Gradle sync. Leave empty to use the same JDK as `./gradlew` (`org.gradle.java.home`, then `JAVA_HOME`, then the newest JDK 17+ found on this machine), which lets the sync reuse your existing Gradle daemon."
+        },
+        "androidBridge.gradle.arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "resource",
+          "markdownDescription": "Extra Gradle command-line arguments for every sync, for example `-Pfoo=bar`."
+        },
+        "androidBridge.variant": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "scope": "resource",
+          "markdownDescription": "Build variant of the application modules, for example `prodDebug`. Library modules follow the variant the application consumes. Use **Android: Select Build Variant** to change it."
+        },
+        "androidBridge.sync.generateSources": {
+          "type": "string",
+          "enum": [
+            "none",
+            "light",
+            "full"
+          ],
+          "enumDescriptions": [
+            "Only read the project model.",
+            "Also generate R classes, BuildConfig, view/data binding and AIDL (fast, no compilation).",
+            "Also run generate<Variant>Sources and KSP/kapt, which compiles upstream modules."
+          ],
+          "default": "light",
+          "scope": "resource",
+          "description": "Which generated sources a sync produces."
+        },
+        "androidBridge.sync.onGradleFileChange": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "always",
+            "never"
+          ],
+          "default": "ask",
+          "scope": "resource",
+          "description": "What to do when build.gradle(.kts), settings or the version catalog change."
+        },
+        "androidBridge.librarySources": {
+          "type": "string",
+          "enum": [
+            "cached",
+            "off"
+          ],
+          "default": "cached",
+          "scope": "resource",
+          "markdownDescription": "Attach library `-sources.jar` files that are already in the Gradle cache, so go to definition shows source instead of decompiled code."
+        },
+        "androidBridge.androidSdkSources": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Attach the Android SDK sources (`<sdk>/sources/android-<api>`, install them with the SDK manager) so go to definition opens framework source. Makes the Kotlin server's index noticeably larger."
+        },
+        "androidBridge.codeLens.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a \"N usages\" CodeLens above Kotlin declarations."
+        },
+        "androidBridge.codeLens.implementations": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also show \"N implementations\" above interfaces and abstract or open declarations."
+        },
+        "androidBridge.codeLens.maxSymbolsPerFile": {
+          "type": "number",
+          "default": 200,
+          "description": "Skip the usages CodeLens in files with more declarations than this."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "build:sidecar": "cd sidecar && ./gradlew assemble -q",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "package": "npm run build:sidecar && node esbuild.mjs --production && vsce package --no-dependencies --allow-missing-repository",
+    "test:e2e": "npm run build && node test/e2e/run.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
+  }
+}

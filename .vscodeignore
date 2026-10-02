@@ -1,0 +1,6 @@
+**
+!package.json
+!README.md
+!dist/extension.cjs
+!server/android-bridge-sync.jar
+!gradle/android-bridge.init.gradle
