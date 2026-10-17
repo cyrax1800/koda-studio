@@ -13,4 +13,4 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "android-bridge-sync"
+rootProject.name = "koda-sync"

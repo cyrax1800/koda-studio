@@ -1,5 +1,6 @@
 /*
  * Copyright 2026  Kumarapu Hemram
+ * Modified 2026 by Koda Studio contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +30,12 @@ class RocksDBAdapter(private val path: Path): DatabaseAdapter {
             setKeepLogFileNum(1)
             setInfoLogLevel(InfoLogLevel.FATAL_LEVEL)
         }
+
+        /** One for every write: each `WriteOptions()` is a native object that was never freed. */
+        private val writeOptions = WriteOptions()
+
+        /** Entries read per open iterator in [prefixSearchRaw]. */
+        private const val CHUNK = 256
     }
 
     private val db = initializeDatabase()
@@ -87,8 +94,7 @@ class RocksDBAdapter(private val path: Path): DatabaseAdapter {
         values.forEach { (key, value) ->
             batch.put(key.toByteArray(), value)
         }
-        db.write(WriteOptions(), batch)
-        batch.close()
+        batch.use { db.write(writeOptions, it) }
     }
 
     override fun getRawData(key: String): ByteArray? {
@@ -96,23 +102,44 @@ class RocksDBAdapter(private val path: Path): DatabaseAdapter {
         return data
     }
 
+    /**
+     * Read in chunks, each with its own iterator that is closed before the chunk is handed out. Callers stop early
+     * (`take`, `first`), which left the single iterator this used to keep open, and its `finally`, never run: every
+     * search leaked a native iterator, and each pins the memtables it saw, so native memory grew without bound while
+     * the index was written (a 4 GB heap server reached ~20 GB).
+     */
     override fun prefixSearchRaw(prefix: String): Sequence<Pair<String, ByteArray>> = sequence {
-        val readOptions = ReadOptions().setPrefixSameAsStart(true)
-
-        readOptions.use {
-            val iterator = db.newIterator(readOptions)
-            iterator.seek(prefix.toByteArray())
-
-            while (iterator.isValid) {
-                val key = iterator.key()
-                val keyString = key.toString(Charset.defaultCharset())
-                if (!keyString.startsWith(prefix)) break
-
-                yield(Pair(keyString, iterator.value()))
-                iterator.next()
+        val prefixBytes = prefix.toByteArray()
+        var from = prefixBytes
+        var afterFrom = false
+        while (true) {
+            val chunk = ArrayList<Pair<ByteArray, ByteArray>>(CHUNK)
+            var more = false
+            ReadOptions().use { readOptions ->
+                db.newIterator(readOptions).use { iterator ->
+                    iterator.seek(from)
+                    if (afterFrom && iterator.isValid && iterator.key().contentEquals(from)) iterator.next()
+                    while (iterator.isValid) {
+                        val key = iterator.key()
+                        if (!key.startsWith(prefixBytes)) break
+                        if (chunk.size == CHUNK) {
+                            more = true
+                            break
+                        }
+                        chunk += key to iterator.value()
+                        iterator.next()
+                    }
+                }
             }
+            for ((key, value) in chunk) yield(key.toString(Charset.defaultCharset()) to value)
+            if (!more) break
+            from = chunk.last().first
+            afterFrom = true
         }
     }
+
+    private fun ByteArray.startsWith(prefix: ByteArray): Boolean =
+        size >= prefix.size && prefix.indices.all { this[it] == prefix[it] }
 
     override fun remove(key: String) {
         db.delete(key.toByteArray())
@@ -123,8 +150,7 @@ class RocksDBAdapter(private val path: Path): DatabaseAdapter {
         keys.forEach {
             batch.delete(it.toByteArray())
         }
-        db.write(WriteOptions(), batch)
-        batch.close()
+        batch.use { db.write(writeOptions, it) }
     }
 
     override fun close() {

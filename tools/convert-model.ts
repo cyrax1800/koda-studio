@@ -1,18 +1,18 @@
-// Dev helper: node tools/convert-model.ts <model.json> <out/workspace.json>
+// Dev helper: node tools/convert-model.ts <model.json> <out/modules.json>
 import fs from 'node:fs';
 import path from 'node:path';
 
 import type { ProjectModel } from '../src/gradle/modelTypes.ts';
-import { toWorkspaceJson } from '../src/intellij/workspaceJson.ts';
+import { toModulesJson } from '../src/server/modulesJson.ts';
 
 const [modelPath, outPath] = process.argv.slice(2);
 if (!modelPath || !outPath) {
-  console.error('usage: node tools/convert-model.ts <model.json> <out/workspace.json>');
+  console.error('usage: node tools/convert-model.ts <model.json> <out/modules.json>');
   process.exit(2);
 }
 const model = JSON.parse(fs.readFileSync(modelPath, 'utf8')) as ProjectModel;
-const { workspace, warnings } = toWorkspaceJson(model, { librarySources: 'cached' });
+const { modules, warnings } = toModulesJson(model, { librarySources: 'cached' });
 fs.mkdirSync(path.dirname(outPath), { recursive: true });
-fs.writeFileSync(outPath, JSON.stringify(workspace, null, 2));
+fs.writeFileSync(outPath, JSON.stringify(modules, null, 2));
 for (const warning of warnings) console.warn(`warning: ${warning}`);
-console.log(`modules=${workspace.modules.length} libraries=${workspace.libraries.length} -> ${outPath}`);
+console.log(`modules=${modules.length} (${modules.filter((m) => m.isSource).length} source) -> ${outPath}`);

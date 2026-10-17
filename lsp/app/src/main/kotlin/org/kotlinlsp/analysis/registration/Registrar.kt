@@ -1,5 +1,6 @@
 /*
  * Copyright 2026  Kumarapu Hemram
+ * Modified 2026 by Koda Studio contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +17,10 @@ import com.intellij.mock.MockComponentManager
 import com.intellij.mock.MockProject
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.extensions.DefaultPluginDescriptor
-import com.intellij.util.messages.Topic
 import org.jetbrains.kotlin.load.kotlin.JvmType
-import kotlin.reflect.full.primaryConstructor
 
 class Registrar(val project: MockProject, val app: MockApplication, val disposable: Disposable) {
     private val pluginDescriptor = DefaultPluginDescriptor("analysis-api-plugin-descriptor")
-
-    fun <T: Any> projectListener(className: String, topic: Topic<T>) {
-        val listenerClass = loadClass(project, className, pluginDescriptor) as Class<T>
-        project.messageBus.connect().subscribe(
-            topic,
-            listenerClass.kotlin.primaryConstructor!!.call(project)
-        )
-    }
 
     fun appServiceClass(className: String) {
         val implClass = app.loadClass<JvmType.Object>(className, pluginDescriptor)

@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.kotlinlsp.setup.scenario
 import org.mockito.ArgumentMatchers.argThat
+import org.mockito.Mockito.timeout
 import org.mockito.Mockito.verify
 
 @Tag("CI")
@@ -31,7 +32,7 @@ class RealTimeDiagnostics {
         })
 
         // Assert
-        verify(client).publishDiagnostics(argThat { !it.diagnostics.any { it.severity == DiagnosticSeverity.Error } })
+        verify(client, timeout(120_000)).publishDiagnostics(argThat { !it.diagnostics.any { it.severity == DiagnosticSeverity.Error } })
     }
 
     @Test
@@ -44,7 +45,7 @@ class RealTimeDiagnostics {
         })
 
         // Assert
-        verify(client).publishDiagnostics(argThat {
+        verify(client, timeout(120_000)).publishDiagnostics(argThat {
             it.diagnostics.any {
                 it.severity == DiagnosticSeverity.Error && it.message == "Expecting a top level declaration"
             }

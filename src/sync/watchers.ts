@@ -29,7 +29,7 @@ export function watchGradleFiles(service: SyncService): vscode.Disposable {
       const choice = await vscode.window.showInformationMessage('Gradle files have changed since the last Android sync.', syncNow, always);
       if (choice === always) {
         await vscode.workspace
-          .getConfiguration('androidBridge', service.folder.uri)
+          .getConfiguration('kodaStudio', service.folder.uri)
           .update('sync.onGradleFileChange', 'always', vscode.ConfigurationTarget.Workspace);
       }
       if (choice === syncNow || choice === always) void service.sync({ reason: 'Gradle files changed' });
@@ -48,7 +48,7 @@ export function watchGradleFiles(service: SyncService): vscode.Disposable {
 
 /**
  * Builds outside the extension (`./gradlew assembleDebug`) create generated source folders and R jars. Re-converting
- * the last model is cheap and adds them without a Gradle sync; it only reloads the server if workspace.json changed.
+ * the last model is cheap and adds them without a Gradle sync; it only restarts the server if modules.json changed.
  */
 export function watchBuildOutputs(service: SyncService): vscode.Disposable {
   const patterns = ['**/build/generated/*/*', '**/build/generated/*/*/*', '**/build/intermediates/*r_class_jar/**/R.jar'];

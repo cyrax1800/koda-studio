@@ -1,5 +1,6 @@
 /*
  * Copyright 2026  Kumarapu Hemram
+ * Modified 2026 by Koda Studio contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +18,7 @@ import java.nio.file.Paths
 import kotlin.io.path.absolutePathString
 
 fun getCachePath(rootPath: String): Path {
-    val cachePath = Paths.get(rootPath).resolve(".kotlin-lsp")
+    val cachePath = LaunchOptions.indexDir?.let { Paths.get(it) } ?: Paths.get(rootPath).resolve(".kotlin-lsp")
 
     if (!Files.exists(cachePath)) Files.createDirectories(cachePath)
 

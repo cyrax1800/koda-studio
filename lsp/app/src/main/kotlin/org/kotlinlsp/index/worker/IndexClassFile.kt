@@ -1,5 +1,6 @@
 /*
  * Copyright 2026  Kumarapu Hemram
+ * Modified 2026 by Koda Studio contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +27,12 @@ import org.jetbrains.kotlin.psi.stubs.impl.KotlinClassStubImpl
 import org.jetbrains.kotlin.psi.stubs.impl.KotlinFunctionStubImpl
 import org.jetbrains.kotlin.psi.stubs.impl.KotlinParameterStubImpl
 import org.jetbrains.kotlin.psi.stubs.impl.KotlinPropertyStubImpl
+import com.intellij.psi.impl.cache.ModifierFlags
+import com.intellij.psi.impl.java.stubs.JavaStubElementTypes
+import com.intellij.psi.impl.java.stubs.PsiModifierListStub
+import com.intellij.psi.impl.java.stubs.PsiClassStub
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtModifierListOwner
 import org.kotlinlsp.analysis.services.JavaStubBuilder
 import org.kotlinlsp.analysis.services.KotlinStubBuilder
 import org.kotlinlsp.index.db.*
@@ -83,21 +90,51 @@ fun indexClassFile(project: Project, virtualFile: VirtualFile, db: Database) {
         val children = stub.childrenStubs
         children.forEach { childStub ->
             when(childStub){
+                // A compiled Java class (android.jar, Java libraries): its name, so it can be completed and imported
+                // (`Log`, `Context`, `Intent`). Members come from analysis once the class resolves.
+                is PsiClassStub<*> -> {
+                    // From the stub alone: building PSI here (`childStub.psi`) gave the class file a PSI analysis could
+                    // later pick up.
+                    val modifiers = childStub.findChildStubByElementType(JavaStubElementTypes.MODIFIER_LIST) as? PsiModifierListStub
+                    val mask = modifiers?.modifiersMask ?: 0
+                    if (mask and ModifierFlags.PUBLIC_MASK == 0) return@forEach
+                    val name = childStub.name ?: return@forEach
+                    val type = when {
+                        childStub.isAnnotationType -> Declaration.Class.Type.ANNOTATION_CLASS
+                        childStub.isEnum -> Declaration.Class.Type.ENUM_CLASS
+                        childStub.isInterface -> Declaration.Class.Type.INTERFACE
+                        mask and ModifierFlags.ABSTRACT_MASK != 0 -> Declaration.Class.Type.ABSTRACT_CLASS
+                        else -> Declaration.Class.Type.CLASS
+                    }
+                    declarations.add(
+                        Declaration.Class(
+                            name = name,
+                            isTopLevel = true,
+                            isPrivate = false,
+                            type = type,
+                            fqName = childStub.qualifiedName ?: return@forEach,
+                            file = virtualFile.url,
+                            startOffset = 0,
+                            endOffset = name.length,
+                        )
+                    )
+                }
                 is KotlinFunctionStubImpl -> {
                     declarations.add(
                         Declaration.Function(
-                            childStub.name,
-                            childStub.getFqName().toString(),
-                            childStub.isExtension(),
-                            childStub.isTopLevel(),
-                            childStub.psi.isPrivate() || childStub.psi.isProtected(),
+                            childStub.name ?: "",
+                            childStub.fqName.toString(),
+                            childStub.isExtension,
+                            childStub.isTopLevel,
+                            childStub.psi.isHidden(),
                             virtualFile.url,
                             0,
-                            0 + childStub.name.length,
+                            0 + (childStub.name?.length ?: 0),
                             childStub.psi.valueParameters.map {
                                 Declaration.Function.Parameter(
                                     it.nameAsSafeName.asString(),
-                                    it.typeReference?.getShortTypeText() ?: ""
+                                    it.typeReference?.getShortTypeText() ?: "",
+                                    it.hasDefaultValue() || it.isVarArg,
                                 )
                             },
                             childStub.psi.typeReference?.getShortTypeText() ?: "",
@@ -110,7 +147,7 @@ fun indexClassFile(project: Project, virtualFile: VirtualFile, db: Database) {
                     if (childStub.psi is KtEnumEntry){
                         declarations.add(Declaration.EnumEntry(
                             childStub.name ?: "",
-                            childStub.getFqName().toString(),
+                            childStub.fqName.toString(),
                             virtualFile.url,
                             0,
                             0 + (childStub.name?.length ?: 0),
@@ -135,9 +172,9 @@ fun indexClassFile(project: Project, virtualFile: VirtualFile, db: Database) {
                         Declaration.Class(
                             childStub.psi.name ?: "",
                             childStub.psi.isTopLevelKtOrJavaMember(),
-                            childStub.psi.isPrivate() || childStub.psi.isProtected(),
+                            childStub.psi.isHidden(),
                             type,
-                            childStub.getFqName().toString(),
+                            childStub.fqName.toString(),
                             virtualFile.url,
                             0,
                             (childStub.name?.length ?: 0),
@@ -152,14 +189,16 @@ fun indexClassFile(project: Project, virtualFile: VirtualFile, db: Database) {
                     declarations.add(
                         Declaration.Field(
                             childStub.psi.name ?: "",
-                            childStub.getFqName().toString(),
+                            childStub.fqName.toString(),
                             childStub.psi.isExtensionDeclaration(),
                             childStub.psi.isTopLevelKtOrJavaMember(),
                             virtualFile.url,
                             0,
                             0 + (childStub.name?.length ?: 0),
                             childStub.psi.typeReference?.getShortTypeText() ?: "",
-                            clazz?.fqName?.asString() ?: ""
+                            clazz?.fqName?.asString() ?: "",
+                            receiverFqName = childStub.psi.receiverTypeReference?.getShortTypeText() ?: "",
+                            isPrivate = childStub.psi.isHidden(),
                         )
                     )
                 }
@@ -171,7 +210,7 @@ fun indexClassFile(project: Project, virtualFile: VirtualFile, db: Database) {
                     declarations.add(
                         Declaration.Field(
                             childStub.name ?: "",
-                            childStub.getFqName().toString(),
+                            childStub.fqName.toString(),
                             childStub.psi.isExtensionDeclaration(),
                             childStub.psi.isTopLevelKtOrJavaMember(),
                             virtualFile.url,
@@ -210,3 +249,7 @@ fun indexClassFile(project: Project, virtualFile: VirtualFile, db: Database) {
     )
     db.setFile(fileRecord)
 }
+
+/** Not usable from the project: private, protected, or `internal` to the library it was compiled in. */
+private fun KtModifierListOwner.isHidden(): Boolean =
+    hasModifier(KtTokens.PRIVATE_KEYWORD) || hasModifier(KtTokens.PROTECTED_KEYWORD) || hasModifier(KtTokens.INTERNAL_KEYWORD)

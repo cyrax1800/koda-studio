@@ -59,7 +59,7 @@ export class UsagesCodeLensProvider implements vscode.CodeLensProvider<UsageLens
         if (document.languageId === 'kotlin' || document.languageId === 'java') this.generation++;
       }),
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('androidBridge.codeLens')) this.refresh();
+        if (e.affectsConfiguration('kodaStudio.codeLens')) this.refresh();
       }),
     );
   }
@@ -78,6 +78,8 @@ export class UsagesCodeLensProvider implements vscode.CodeLensProvider<UsageLens
   async provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<UsageLens[]> {
     const config = readConfig(document.uri).codeLens;
     if (!config.enabled || document.uri.scheme !== 'file') return [];
+    // Project files only: a library's source opened by go to definition (kept in the index folder) gets none.
+    if (!vscode.workspace.getWorkspaceFolder(document.uri)) return [];
     // VS Code asks again after every edit and cancels the previous request, so this waits out a typing burst.
     if (!(await this.typing.quiet(SYMBOLS_QUIET_MS, token))) return [];
     const symbols = await vscode.commands.executeCommand<(vscode.DocumentSymbol | vscode.SymbolInformation)[] | undefined>(
@@ -88,7 +90,8 @@ export class UsagesCodeLensProvider implements vscode.CodeLensProvider<UsageLens
     const targets = lensTargets(symbols as vscode.DocumentSymbol[], (line) =>
       line < document.lineCount ? document.lineAt(line).text : '',
     );
-    if (targets.length > config.maxSymbolsPerFile) return [];
+    // Only the lenses on screen are resolved, so even a generated file of 5,000 constants is fine.
+    if (config.maxSymbolsPerFile > 0 && targets.length > config.maxSymbolsPerFile) return [];
     const lenses: UsageLens[] = [];
     for (const target of targets) {
       lenses.push(new UsageLens(document.uri, target, 'usages'));

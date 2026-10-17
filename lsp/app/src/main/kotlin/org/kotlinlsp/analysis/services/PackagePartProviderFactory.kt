@@ -1,5 +1,6 @@
 /*
  * Copyright 2026  Kumarapu Hemram
+ * Modified 2026 by Koda Studio contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +30,7 @@ class PackagePartProviderFactory: KotlinPackagePartProviderFactory {
         trace("createPackagePartProvider $scope")
 
         return JvmPackagePartProvider(latestLanguageVersionSettings, scope).apply {
-            addRoots(allLibraryRoots, MessageCollector.NONE)
+            addRoots(allLibraryRoots, org.kotlinlsp.analysis.stubReportingConfiguration())
         }
     }
 }

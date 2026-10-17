@@ -3,7 +3,8 @@
 //
 // node tools/lsp-probe.mjs --root <project> [--workspace-json <file>] [--probes <probes.json>]
 //                          [--idle 20] [--timeout 1800] [--system-path <dir>] [--log <file>]
-//                          [--server-cmd "<command> <args>"] [--files-root <dir>]
+//                          [--server-cmd "<command> <args>"] [--files-root <dir>] [--init-options <json>]
+//                          [--wait-ready]
 //
 // --server-cmd drives any other language server over stdio instead of JetBrains'. --files-root resolves probe
 // files somewhere other than --root, for servers whose project file must live outside the project.
@@ -25,7 +26,7 @@ const timeoutSeconds = Number(args.timeout ?? 1800);
 const serverCommand = args['server-cmd'] ? String(args['server-cmd']).split(' ').filter(Boolean) : undefined;
 const serverHome = serverCommand ? undefined : args.server ?? findServerHome();
 const filesRoot = path.resolve(args['files-root'] ?? root);
-const systemPath = args['system-path'] ?? path.join(os.tmpdir(), 'android-bridge-probe', path.basename(root));
+const systemPath = args['system-path'] ?? path.join(os.tmpdir(), 'koda-probe', path.basename(root));
 const logFile = args.log;
 const probes = args.probes ? JSON.parse(fs.readFileSync(args.probes, 'utf8')) : [];
 
@@ -112,7 +113,7 @@ function send(message) {
   server.stdin.write(`Content-Length: ${body.length}\r\n\r\n`);
   server.stdin.write(body);
 }
-function request(method, params, timeoutMs = 600_000) {
+function request(method, params, timeoutMs = Number(args['request-timeout'] ?? 120) * 1000) {
   const id = nextId++;
   send({ id, method, params });
   return new Promise((resolve, reject) => {
@@ -170,8 +171,13 @@ function onServerRequest(msg) {
   send({ id: msg.id, result });
 }
 
+// `--wait-ready`: start the probes once our server's `koda/status` says indexing finished.
+let markReady;
+const serverReady = new Promise((resolve) => (markReady = resolve));
+
 function onNotification(msg) {
   const p = msg.params ?? {};
+  if (msg.method === 'koda/status' && p.state === 'ready') markReady();
   switch (msg.method) {
     case '$/progress': {
       const value = p.value ?? {};
@@ -236,6 +242,18 @@ function changeDocument(uri, range, text) {
   versions.set(uri, version);
   notify('textDocument/didChange', { textDocument: { uri, version }, contentChanges: [{ range, text }] });
 }
+function offsetAt(text, position) {
+  let offset = 0;
+  for (let line = 0; line < position.line; line++) offset = text.indexOf('\n', offset) + 1;
+  return offset + position.character;
+}
+
+function applyEdits(text, edits) {
+  const sorted = [...edits].sort((a, b) => offsetAt(text, b.range.start) - offsetAt(text, a.range.start));
+  for (const e of sorted) text = text.slice(0, offsetAt(text, e.range.start)) + e.newText + text.slice(offsetAt(text, e.range.end));
+  return text;
+}
+
 function positionAt(text, index) {
   const lines = text.slice(0, index).split('\n');
   return { line: lines.length - 1, character: lines[lines.length - 1].length };
@@ -260,9 +278,15 @@ async function runProbe(probe) {
     for (let i = 0; i < probe.repeat; i++) results.push(await runProbe({ ...probe, repeat: 1 }));
     return { label: `${probe.kind} x${probe.repeat}`, results };
   }
+  if (probe.kind === 'wait') {
+    if (probe.ready) await serverReady;
+    else await sleep((probe.seconds ?? 10) * 1000);
+    log(`wait: done`);
+    return { label: 'wait', ok: true };
+  }
   const file = path.resolve(filesRoot, probe.file);
   const uri = openDocument(file);
-  const text = fs.readFileSync(file, 'utf8');
+  let text = fs.readFileSync(file, 'utf8');
   const label = `${probe.kind} ${probe.file}${probe.find ? ` @ "${probe.find}"+${probe.offset ?? 0}` : ''}`;
   const position = probe.find ? positionOf(text, probe.find, probe.offset ?? 0) : undefined;
   const t0 = Date.now();
@@ -270,7 +294,22 @@ async function runProbe(probe) {
     switch (probe.kind) {
       case 'diagnostics': {
         let items;
-        try {
+        // `"insert"` (at `"find"` + `"offset"`) checks the diagnostics of an edited file, without touching the disk;
+        // the edit is undone afterwards.
+        let insertedRange;
+        if (probe.insert) {
+          const index = text.indexOf(probe.find) + (probe.offset ?? 0);
+          const start = positionAt(text, index);
+          insertedRange = { start, end: positionAt(text.slice(0, index) + probe.insert, index + probe.insert.length) };
+          const before = pushedDiagnostics.get(uri)?.at ?? 0;
+          changeDocument(uri, { start, end: start }, probe.insert);
+          const deadline = Date.now() + 120_000;
+          while (Date.now() < deadline && (pushedDiagnostics.get(uri)?.at ?? 0) <= before) await sleep(200);
+          // Then quiet for 3 s, so diagnostics of the edit have arrived.
+          while (Date.now() < deadline && Date.now() - pushedDiagnostics.get(uri).at < 3000) await sleep(200);
+          items = pushedDiagnostics.get(uri)?.items ?? [];
+          changeDocument(uri, insertedRange, '');
+        } else try {
           const report = await request('textDocument/diagnostic', { textDocument: { uri } });
           items = report?.items ?? [];
         } catch {
@@ -285,6 +324,12 @@ async function runProbe(probe) {
         }
         const errors = items.filter((d) => d.severity === 1);
         log(`${label}: ${errors.length} errors, ${items.length} total (${Date.now() - t0} ms)`);
+        if (probe.expectError) {
+          const found = errors.some((d) => d.message.includes(probe.expectError));
+          log(`    expected error ${JSON.stringify(probe.expectError)}: ${found ? 'found' : 'MISSING'}`);
+          for (const d of errors.slice(0, probe.max ?? 15)) log(`    L${d.range.start.line + 1}: ${d.message}`);
+          return { label, errors: errors.length, ok: found };
+        }
         for (const d of errors.slice(0, probe.max ?? 15)) log(`    L${d.range.start.line + 1}: ${d.message}`);
         return { label, errors: errors.length };
       }
@@ -299,6 +344,8 @@ async function runProbe(probe) {
           insertedRange = { start, end: requestPosition };
           changeDocument(uri, { start, end: start }, probe.insert);
         }
+        // `"smart": true` asks for smart completion (Ctrl+Shift+Space) first.
+        if (probe.smart) notify('koda/smartCompletion', {});
         const result = await request('textDocument/completion', { textDocument: { uri }, position: requestPosition });
         if (insertedRange) changeDocument(uri, insertedRange, '');
         const items = Array.isArray(result) ? result : result?.items ?? [];
@@ -307,7 +354,225 @@ async function runProbe(probe) {
         const missing = expected.filter((e) => !labels.some((l) => l === e || l.startsWith(e + '(') || l.startsWith(e + ' ')));
         log(`${label}: ${items.length} items (${Date.now() - t0} ms)${expected.length ? `, missing: ${JSON.stringify(missing)}` : ''}`);
         log(`    first: ${labels.slice(0, 12).join(', ')}`);
+        // `"showInsert": true` prints what the expected items insert, e.g. `launch { $0 }`, and their import edits.
+        if (probe.showInsert) {
+          for (const item of items.filter((i) => expected.some((e) => i.label === e || i.label.startsWith(e + '(')))) {
+            const imports = (item.additionalTextEdits ?? []).map((e) => e.newText.trim()).join('; ');
+            const from = item.labelDetails?.description ? ` (${item.labelDetails.description})` : '';
+            log(`    insert ${item.label}${item.labelDetails?.detail ?? ""}${from}: ${item.insertText ?? item.textEdit?.newText ?? item.label}${imports ? `  [${imports}]` : ''}`);
+          }
+        }
         return { label, ok: missing.length === 0 };
+      }
+      // Typing as in VS Code: `"type"` is typed one character at a time (`"interval"` ms apart, default 120) at
+      // `"find"` + `"offset"` after `"insert"` (e.g. a new line). Each keystroke sends what the editor sends: the change,
+      // then completion (the previous one cancelled), semantic tokens, inlay hints and code actions. Reports when the
+      // last completion arrived after the last keystroke, and whether it had `"expect"`.
+      case 'typing': {
+        // `"after"`: seconds between opening the file and the first keystroke (people look before they type).
+        if (probe.after) await sleep(probe.after * 1000);
+        const index = text.indexOf(probe.find) + (probe.offset ?? 0);
+        const start = positionAt(text, index);
+        let typed = probe.insert ?? '';
+        if (typed) changeDocument(uri, { start, end: start }, typed);
+        const timings = { completion: [], semanticTokens: [], inlayHint: [], codeAction: [] };
+        const timed = (name, method, params) => {
+          const sentAt = Date.now();
+          return request(method, params).then(
+            (result) => (timings[name].push(Date.now() - sentAt), result),
+            () => undefined,
+          );
+        };
+        // As VS Code's suggest widget: one request at a time; typing while it is pending sends nothing, and the answer
+        // is asked again for the current word only when the list was incomplete.
+        const currentWord = () => /[A-Za-z0-9_]*$/.exec(typed)[0];
+        let pending;
+        let shown;
+        let lastKeyAt = 0;
+        const ask = () => {
+          const word = currentWord();
+          const cursor = positionAt(text.slice(0, index) + typed, index + typed.length);
+          pending = timed('completion', 'textDocument/completion', { textDocument: { uri }, position: cursor }).then((result) => {
+            pending = undefined;
+            shown = { result, word, at: Date.now() };
+            if (result?.isIncomplete && currentWord() !== word) ask();
+          });
+        };
+        for (const ch of probe.type) {
+          const at = positionAt(text.slice(0, index) + typed, index + typed.length);
+          changeDocument(uri, { start: at, end: at }, ch);
+          typed += ch;
+          lastKeyAt = Date.now();
+          const cursor = positionAt(text.slice(0, index) + typed, index + typed.length);
+          // A new word (after `.` or a space) starts a new list.
+          if (!pending && (!shown || shown.result?.isIncomplete || !/[A-Za-z0-9_]/.test(ch) || currentWord().length === 1)) ask();
+          void timed('semanticTokens', 'textDocument/semanticTokens/full', { textDocument: { uri } });
+          void timed('inlayHint', 'textDocument/inlayHint', { textDocument: { uri }, range: { start: { line: Math.max(0, cursor.line - 40), character: 0 }, end: { line: cursor.line + 40, character: 0 } } });
+          void timed('codeAction', 'textDocument/codeAction', { textDocument: { uri }, range: { start: cursor, end: cursor }, context: { diagnostics: [] } });
+          await sleep(probe.interval ?? 120);
+        }
+        while (pending) await pending;
+        const result = shown?.result;
+        const shownAfter = Math.max(0, (shown?.at ?? Date.now()) - lastKeyAt);
+        const word = currentWord().toLowerCase();
+        const items = (Array.isArray(result) ? result : result?.items ?? []).filter((i) => (i.filterText ?? i.label).toLowerCase().startsWith(word));
+        const labels = items.map((i) => i.label);
+        const expected = probe.expect ?? [];
+        const missing = expected.filter((e) => !labels.some((l) => l === e || l.startsWith(e + '(') || l.startsWith(e + ' ')));
+        // Then, with the text unchanged, what highlighting and hints take.
+        await Promise.all([
+          timed('semanticTokens', 'textDocument/semanticTokens/full', { textDocument: { uri } }),
+          timed('inlayHint', 'textDocument/inlayHint', { textDocument: { uri }, range: { start: { line: 0, character: 0 }, end: { line: 200, character: 0 } } }),
+        ]);
+        const stats = Object.entries(timings).map(([k, v]) => `${k} ${v.length ? `${Math.min(...v)}–${Math.max(...v)}` : '-'} ms`).join(', ');
+        log(`${label} typing "${probe.type}": list ${shownAfter} ms after the last key, ${timings.completion.length} requests, ${items.length} items${expected.length ? `, missing: ${JSON.stringify(missing)}` : ''}`);
+        log(`    first: ${labels.slice(0, 8).join(', ')}`);
+        log(`    ${stats}`);
+        const end = positionAt(text.slice(0, index) + typed, index + typed.length);
+        changeDocument(uri, { start, end }, '');
+        await sleep(1000);
+        return { label, ms: shownAfter, ok: missing.length === 0 };
+      }
+      // Optimize Imports as on save: the import lines it removes, and whether the order changed.
+      // Formatting: how many lines Reformat Code changes, and the first few.
+      // `{ "kind": "wait", "seconds": 60 }` or `{ "kind": "wait", "ready": true }`: let the server work (index) first.
+      case 'wait': {
+        if (probe.ready) await serverReady;
+        else await new Promise((r) => setTimeout(r, (probe.seconds ?? 10) * 1000));
+        log(`${label}: waited`);
+        return { label, ok: true };
+      }
+      // Code actions at `"find"` + `"offset"` (after `"insert"`): their titles, and the text after applying the first
+      // one whose title starts with `"apply"`.
+      case 'codeAction': {
+        let original = text;
+        let insertedRange;
+        if (probe.insert) {
+          const index = text.indexOf(probe.find);
+          const start = positionAt(text, index);
+          text = text.slice(0, index) + probe.insert + text.slice(index);
+          insertedRange = { start, end: positionAt(text, index + probe.insert.length) };
+          changeDocument(uri, { start, end: start }, probe.insert);
+        }
+        const at = positionAt(text, text.indexOf(probe.at ?? probe.find) + (probe.offset ?? 0));
+        const actions = (await request('textDocument/codeAction', { textDocument: { uri }, range: { start: at, end: at }, context: { diagnostics: [] } })) ?? [];
+        log(`${label}: ${actions.map((a) => a.title).join(' | ')} (${Date.now() - t0} ms)`);
+        const chosen = actions.find((a) => probe.apply && a.title.startsWith(probe.apply));
+        if (chosen) {
+          const after = applyEdits(text, chosen.edit?.changes?.[uri] ?? []);
+          const lines = after.split('\n');
+          const anchor = (probe.at ?? probe.find).split('\n')[0];
+          const from = Math.max(0, after.slice(0, after.indexOf(anchor)).split('\n').length - 2);
+          for (const line of lines.slice(from, from + (probe.max ?? 14))) log(`    | ${line}`);
+          const imports = after.split('\n').filter((l) => l.startsWith('import ') && !original.includes(l));
+          if (imports.length) log(`    new imports: ${imports.join('; ')}`);
+        }
+        if (insertedRange) changeDocument(uri, insertedRange, '');
+        text = original;
+        return { label, ok: !probe.apply || !!chosen };
+      }
+      // Highlighting: how many semantic tokens of each type the file gets, and the first few.
+      case 'semanticTokens': {
+        const types = serverCapabilities?.semanticTokensProvider?.legend?.tokenTypes ?? [];
+        const data = (await request('textDocument/semanticTokens/full', { textDocument: { uri } }))?.data ?? [];
+        const lines = text.split('\n');
+        const tokens = [];
+        for (let i = 0, line = 0, char = 0; i + 4 < data.length; i += 5) {
+          line += data[i];
+          char = data[i] === 0 ? char + data[i + 1] : data[i + 1];
+          tokens.push({ type: types[data[i + 3]] ?? data[i + 3], text: lines[line]?.slice(char, char + data[i + 2]) });
+        }
+        const counts = {};
+        for (const t of tokens) counts[t.type] = (counts[t.type] ?? 0) + 1;
+        log(`${label}: ${tokens.length} tokens ${JSON.stringify(counts)} (${Date.now() - t0} ms)`);
+        log(`    ${tokens.slice(0, probe.max ?? 20).map((t) => `${t.text}:${t.type}`).join(' ')}`);
+        return { label, ok: tokens.length > 0 };
+      }
+      // What the usages CodeLens does: references for every declaration in the file.
+      case 'codeLens': {
+        const symbols = (await request('textDocument/documentSymbol', { textDocument: { uri } })) ?? [];
+        const flat = [];
+        const walk = (list) => list.forEach((s) => { flat.push(s); walk(s.children ?? []); });
+        walk(symbols);
+        let total = 0;
+        for (const symbol of flat.slice(0, probe.max ?? 200)) {
+          const position = (symbol.selectionRange ?? symbol.location?.range).start;
+          const refs = await request('textDocument/references', { textDocument: { uri }, position, context: { includeDeclaration: false } });
+          total += refs?.length ?? 0;
+        }
+        log(`${label}: ${flat.length} declarations, ${total} references (${Date.now() - t0} ms)`);
+        return { label, ok: true };
+      }
+      case 'organizeImports':
+      case 'format': {
+        // `"insert"` at `"find"` + `"offset"` first, e.g. an unused import or badly indented code (undone afterwards).
+        let insertedRange;
+        let original = text;
+        if (probe.insert) {
+          const index = text.indexOf(probe.find) + (probe.offset ?? 0);
+          const start = positionAt(text, index);
+          text = text.slice(0, index) + probe.insert + text.slice(index);
+          insertedRange = { start, end: positionAt(text, index + probe.insert.length) };
+          changeDocument(uri, { start, end: start }, probe.insert);
+        }
+        let edits;
+        if (probe.kind === 'organizeImports') {
+          const actions = await request('textDocument/codeAction', {
+            textDocument: { uri },
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+            context: { diagnostics: [], only: ['source.organizeImports'] },
+          });
+          edits = actions?.[0]?.edit?.changes?.[uri] ?? [];
+        } else {
+          edits = (await request('textDocument/formatting', { textDocument: { uri }, options: { tabSize: 4, insertSpaces: true } })) ?? [];
+        }
+        if (insertedRange) changeDocument(uri, insertedRange, '');
+        const after = applyEdits(text, edits);
+        const before = text.split('\n');
+        const now = after.split('\n');
+        const removed = before.filter((l) => !now.includes(l));
+        const added = now.filter((l) => !before.includes(l));
+        log(`${label}: ${edits.length} edit(s), ${removed.length} line(s) removed, ${added.length} added (${Date.now() - t0} ms)`);
+        if (probe.showEdits) for (const e of edits) log(`    edit ${JSON.stringify(e)}`);
+        for (const l of removed.slice(0, probe.max ?? 10)) log(`    - ${l}`);
+        for (const l of added.slice(0, probe.max ?? 10)) log(`    + ${l}`);
+        const expected = probe.expectRemoved ?? [];
+        const missing = expected.filter((e) => !removed.some((l) => l.includes(e)));
+        const wrong = (probe.expectKept ?? []).filter((e) => !now.some((l) => l.includes(e)));
+        if (expected.length || wrong.length) log(`    missing: ${JSON.stringify(missing)} wrongly removed: ${JSON.stringify(wrong)}`);
+        text = original;
+        return { label, ok: missing.length === 0 && wrong.length === 0 };
+      }
+      case 'signatureHelp': {
+        // Cursor at the end of `"insert"` (at `"find"` + `"offset"`), like a completion probe.
+        const index = text.indexOf(probe.find) + (probe.offset ?? 0);
+        const start = positionAt(text, index);
+        const end = positionAt(text.slice(0, index) + probe.insert, index + probe.insert.length);
+        changeDocument(uri, { start, end: start }, probe.insert);
+        const help = await request('textDocument/signatureHelp', { textDocument: { uri }, position: end });
+        changeDocument(uri, { start, end }, '');
+        const signatures = help?.signatures ?? [];
+        log(`${label}: ${signatures.length} signatures, active ${help?.activeSignature}, parameter ${help?.activeParameter} (${Date.now() - t0} ms)`);
+        signatures.forEach((s, i) => {
+          const p = s.parameters?.[help.activeParameter]?.label;
+          const current = Array.isArray(p) ? s.label.slice(p[0], p[1]) : p;
+          log(`    ${i === help.activeSignature ? '*' : ' '} ${s.label.slice(0, 220)}${i === help.activeSignature ? `   ← ${current}` : ''}`);
+        });
+        return { label, ok: signatures.length > 0 };
+      }
+      case 'inlayHints': {
+        // Every hint of the file, printed as `line: <word before the hint> <hint>`.
+        const lines = text.split('\n');
+        const end = { line: lines.length, character: 0 };
+        const hints = (await request('textDocument/inlayHint', { textDocument: { uri }, range: { start: { line: 0, character: 0 }, end } })) ?? [];
+        log(`${label}: ${hints.length} hints (${Date.now() - t0} ms)`);
+        for (const h of hints) {
+          const line = lines[h.position.line] ?? '';
+          const before = [...line.slice(0, h.position.character).matchAll(/(\w+)\s*:/g)].pop()?.[1] ?? line.slice(0, h.position.character).trim().split(/\s+/).pop();
+          const tip = typeof h.tooltip === 'string' ? h.tooltip : h.tooltip?.value ?? '';
+          log(`    hint L${h.position.line + 1} ${before} -> ${typeof h.label === 'string' ? h.label : h.label.map((p) => p.value).join('')} | ${tip}`);
+        }
+        return { label, hints: hints.length };
       }
       case 'references': {
         const result = (await request('textDocument/references', { textDocument: { uri }, position, context: { includeDeclaration: false } })) ?? [];
@@ -324,6 +589,14 @@ async function runProbe(probe) {
         const result = await request('textDocument/definition', { textDocument: { uri }, position });
         const locations = Array.isArray(result) ? result : result ? [result] : [];
         log(`${label}: ${locations.map((l) => (l.uri ?? l.targetUri)).join(', ') || 'none'} (${Date.now() - t0} ms)`);
+        // The line each location points at, to check it lands on the declaration.
+        for (const l of locations) {
+          try {
+            const target = fs.readFileSync(fileURLToPath(l.uri ?? l.targetUri), 'utf8').split('\n');
+            const line = (l.range ?? l.targetSelectionRange).start.line;
+            log(`    L${line + 1}: ${target[line]?.trim().slice(0, 120)}`);
+          } catch {}
+        }
         return { label, count: locations.length };
       }
       case 'hover': {
@@ -343,11 +616,12 @@ async function runProbe(probe) {
 }
 
 // ---- main ----
+let serverCapabilities;
 (async () => {
   const rootUri = pathToFileURL(root).toString();
   const init = await request('initialize', {
     processId: process.pid,
-    clientInfo: { name: 'android-bridge-probe' },
+    clientInfo: { name: 'koda-probe' },
     rootUri,
     workspaceFolders: [{ uri: rootUri, name: path.basename(root) }],
     capabilities: {
@@ -364,11 +638,19 @@ async function runProbe(probe) {
         codeLens: {},
       },
     },
-    initializationOptions: { defaultSdk: args['default-sdk'], buildTools: {}, projects, disableRocksDBWriteAheadLog: false },
+    initializationOptions: {
+      defaultSdk: args['default-sdk'],
+      buildTools: {},
+      projects,
+      disableRocksDBWriteAheadLog: false,
+      ...(args['init-options'] ? JSON.parse(args['init-options']) : {}),
+    },
   });
+  serverCapabilities = init?.capabilities;
   log(`initialized: ${init?.serverInfo?.name ?? '?'} ${init?.serverInfo?.version ?? ''}`);
   notify('initialized', {});
-  await waitForIdle();
+  if (args['wait-ready']) await serverReady;
+  else await waitForIdle();
   log(`import/indexing idle after ${((Date.now() - started) / 1000).toFixed(0)}s`);
 
   if (args.export) {

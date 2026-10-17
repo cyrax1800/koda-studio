@@ -16,7 +16,11 @@ export interface JavaRuntime {
 
 const MIN_VERSION = 17;
 
-export async function findJavaRuntime(configured: string | undefined, gradleRoot: string): Promise<JavaRuntime> {
+export async function findJavaRuntime(
+  configured: string | undefined,
+  gradleRoot: string,
+  setting = 'kodaStudio.gradle.javaHome',
+): Promise<JavaRuntime> {
   const tried: string[] = [];
   const accept = (home: string | undefined, source: string, explicit = false): JavaRuntime | undefined => {
     if (!home) return undefined;
@@ -27,9 +31,9 @@ export async function findJavaRuntime(configured: string | undefined, gradleRoot
   };
 
   if (configured) {
-    const runtime = accept(expandHome(configured), 'androidBridge.gradle.javaHome', true);
+    const runtime = accept(expandHome(configured), setting, true);
     if (runtime) return runtime;
-    throw new Error(`androidBridge.gradle.javaHome must point to a JDK ${MIN_VERSION}+ (tried ${tried.join('; ')})`);
+    throw new Error(`${setting} must point to a JDK ${MIN_VERSION}+ (tried ${tried.join('; ')})`);
   }
   const candidates: [string | undefined, string][] = [
     [gradleProperty(path.join(gradleRoot, 'gradle.properties'), 'org.gradle.java.home'), 'org.gradle.java.home'],
@@ -47,7 +51,7 @@ export async function findJavaRuntime(configured: string | undefined, gradleRoot
     .sort((a, b) => b.version - a.version);
   if (discovered[0]) return discovered[0];
   throw new Error(
-    `No JDK ${MIN_VERSION}+ found. Set androidBridge.gradle.javaHome or JAVA_HOME.` + (tried.length ? ` Tried: ${tried.join('; ')}` : ''),
+    `No JDK ${MIN_VERSION}+ found. Set ${setting} or JAVA_HOME.` + (tried.length ? ` Tried: ${tried.join('; ')}` : ''),
   );
 }
 

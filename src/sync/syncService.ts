@@ -7,17 +7,9 @@ import { readConfig, type GenerateSources } from '../config.ts';
 import { findJavaRuntime } from '../gradle/javaHome.ts';
 import type { ProjectModel, SyncProblem } from '../gradle/modelTypes.ts';
 import { runSync, SyncCancelled } from '../gradle/syncRunner.ts';
-import {
-  ensureProjectsSetting,
-  kotlinExtensionInstalled,
-  offerKotlinExtensionInstall,
-  projectsSettingPointsTo,
-  reloadKotlinWorkspace,
-  restartKotlinServer,
-  warnAboutIntellijExtension,
-} from '../intellij/jetbrainsKotlin.ts';
-import { toWorkspaceJson } from '../intellij/workspaceJson.ts';
 import { log } from '../log.ts';
+import { toModulesJson } from '../server/modulesJson.ts';
+import { runningDaemons, stopDaemons } from './daemons.ts';
 
 export type SyncState =
   | { kind: 'idle' }
@@ -25,28 +17,28 @@ export type SyncState =
   | { kind: 'synced'; variant: string | undefined; problems: number; at: number }
   | { kind: 'failed'; message: string };
 
-const CONSENT_KEY = 'androidBridge.configuredKotlinServer';
-const EMPTY_WORKSPACE = { modules: [], libraries: [], sdks: [], kotlinSettings: [], javaSettings: [] };
-
 export class SyncService implements vscode.Disposable {
   readonly folder: vscode.WorkspaceFolder;
   private readonly context: vscode.ExtensionContext;
   private readonly stateEmitter = new vscode.EventEmitter<SyncState>();
-  private readonly syncedEmitter = new vscode.EventEmitter<void>();
+  private readonly syncedEmitter = new vscode.EventEmitter<{ modulesChanged: boolean }>();
   private current: Promise<boolean> | undefined;
   private abort: AbortController | undefined;
   private lastWrittenHash: string | undefined;
   private model: ProjectModel | undefined;
   private _state: SyncState = { kind: 'idle' };
+  /** Gradle and Kotlin daemons our syncs started, stopped when the window closes. Kept across reloads. */
+  private readonly startedDaemons: Set<number>;
 
   /** Fires on every state change. */
   readonly onDidChangeState = this.stateEmitter.event;
-  /** Fires after a new workspace.json was handed to the Kotlin server. */
+  /** Fires after a sync or refresh, with whether modules.json changed. */
   readonly onDidSync = this.syncedEmitter.event;
 
   constructor(context: vscode.ExtensionContext, folder: vscode.WorkspaceFolder) {
     this.context = context;
     this.folder = folder;
+    this.startedDaemons = new Set(context.workspaceState.get<number[]>(DAEMONS_KEY, []));
   }
 
   get state(): SyncState {
@@ -58,23 +50,30 @@ export class SyncService implements vscode.Disposable {
   }
 
   get dataDir(): string {
-    return path.join(this.root, '.gradle', 'android-bridge');
+    const dir = path.join(this.root, '.gradle', 'koda');
+    // Synced before the rename to Koda Studio: keep that sync instead of asking for a new one.
+    const legacy = path.join(this.root, '.gradle', 'android-bridge');
+    if (!fs.existsSync(dir) && fs.existsSync(legacy)) {
+      try {
+        fs.renameSync(legacy, dir);
+      } catch {
+        // Another window may have moved it already.
+      }
+    }
+    return dir;
   }
 
   get modelFile(): string {
     return path.join(this.dataDir, 'model.json');
   }
 
-  get workspaceJsonFile(): string {
-    return path.join(this.dataDir, 'workspace.json');
+  /** The module graph our Kotlin server reads. */
+  get modulesFile(): string {
+    return path.join(this.dataDir, 'modules.json');
   }
 
   get running(): boolean {
     return this.current !== undefined;
-  }
-
-  get configured(): boolean {
-    return this.context.workspaceState.get<boolean>(CONSENT_KEY) === true;
   }
 
   /** The last synced model, read from disk after a window reload. */
@@ -87,39 +86,6 @@ export class SyncService implements vscode.Disposable {
       }
     }
     return this.model;
-  }
-
-  /**
-   * Connects the Kotlin server to our workspace.json, asking once per workspace. Before the first sync the file is an
-   * empty stub, which keeps the server from starting its own Gradle import.
-   */
-  async ensureConfigured(): Promise<boolean> {
-    if (!kotlinExtensionInstalled()) {
-      void offerKotlinExtensionInstall();
-      return false;
-    }
-    const uri = vscode.Uri.file(this.workspaceJsonFile);
-    if (projectsSettingPointsTo(uri) && fs.existsSync(this.workspaceJsonFile)) return true;
-    if (!this.configured && this.context.extensionMode !== vscode.ExtensionMode.Test) {
-      const setUp = 'Set Up';
-      const choice = await vscode.window.showInformationMessage(
-        `Set up Android support for "${this.folder.name}"? Android Bridge syncs the project with Gradle and connects it to ` +
-          'Kotlin by JetBrains. It adds an "intellij.projects" entry to .vscode/settings.json and keeps the project model ' +
-          'in .gradle/android-bridge/.',
-        setUp,
-      );
-      if (choice !== setUp) return false;
-    }
-    await this.context.workspaceState.update(CONSENT_KEY, true);
-    void warnAboutIntellijExtension();
-    if (!fs.existsSync(this.workspaceJsonFile)) {
-      fs.mkdirSync(this.dataDir, { recursive: true });
-      fs.writeFileSync(this.workspaceJsonFile, JSON.stringify(EMPTY_WORKSPACE));
-    }
-    const changed = await ensureProjectsSetting(uri);
-    // A server that already started its own Gradle import keeps it until restarted with the new setting.
-    if (changed) await restartKotlinServer();
-    return true;
   }
 
   /** Runs a Gradle sync unless one is already running. Resolves to whether it succeeded. */
@@ -142,24 +108,30 @@ export class SyncService implements vscode.Disposable {
     if (this.running) return;
     const model = this.lastModel();
     if (!model) return;
-    if (this.writeWorkspaceJson(model)) {
-      log().info(`Updated workspace.json (${reason})`);
-      reloadKotlinWorkspace();
-      this.syncedEmitter.fire();
+    if (this.writeModulesJson(model)) {
+      log().info(`Updated modules.json (${reason})`);
+      this.syncedEmitter.fire({ modulesChanged: true });
     }
   }
 
   private async runSync(options: { generate?: GenerateSources; reason: string }): Promise<boolean> {
-    if (!(await this.ensureConfigured())) return false;
     const config = readConfig(this.folder.uri);
     const generate = options.generate ?? config.generateSources;
+    // The first sync is followed by indexing everything, which needs the memory the daemon holds.
+    const firstSync = !this.lastModel();
+    const stopDaemon = config.stopGradleDaemon === 'always' || (config.stopGradleDaemon === 'afterFirstSync' && firstSync);
     this.abort = new AbortController();
     const signal = this.abort.signal;
     const started = Date.now();
     log().info(`Sync started (${options.reason}), variant=${config.variant ?? '<default>'}, generate=${generate}`);
+    const daemonsBefore = runningDaemons();
+    const rememberDaemons = () => {
+      for (const pid of runningDaemons()) if (!daemonsBefore.has(pid)) this.startedDaemons.add(pid);
+      void this.context.workspaceState.update(DAEMONS_KEY, [...this.startedDaemons]);
+    };
 
-    return vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Notification, title: 'Android: syncing', cancellable: true },
+    return vscode.window.withProgress<boolean>(
+      { location: vscode.ProgressLocation.Notification, title: 'Koda: syncing', cancellable: true },
       async (progress, token) => {
         token.onCancellationRequested(() => this.abort?.abort());
         const report = (message: string) => {
@@ -179,12 +151,14 @@ export class SyncService implements vscode.Disposable {
               generate,
               gradleArguments: config.gradleArguments,
               java,
+              stopDaemon,
             },
             {
               progress: (message) => report(message),
               phase: (name, tasks) => {
                 log().info(`Phase: ${name}${tasks.length ? ` (${tasks.length} tasks)` : ''}`);
                 if (name === 'generate') report('generating sources…');
+                if (name === 'stop-daemon') report('stopping the Gradle daemon to free memory for indexing…');
               },
               warning: (message) => log().warn(message),
               output: (line) => log().trace(line),
@@ -193,9 +167,7 @@ export class SyncService implements vscode.Disposable {
           );
           const model = JSON.parse(fs.readFileSync(modelPath, 'utf8')) as ProjectModel;
           this.model = model;
-          this.writeWorkspaceJson(model);
-          // Reload even when the JSON is byte-identical: generated files may have changed underneath it.
-          reloadKotlinWorkspace();
+          const modulesChanged = this.writeModulesJson(model);
           const problems = collectProblems(model);
           for (const problem of problems) log().warn(`${problem.project ?? ''} [${problem.stage}] ${problem.message}`);
           const variant = appVariant(model);
@@ -204,7 +176,7 @@ export class SyncService implements vscode.Disposable {
           if (problems.length > 0) {
             void showProblems(`Android sync finished with ${problems.length} problem(s).`);
           }
-          this.syncedEmitter.fire();
+          this.syncedEmitter.fire({ modulesChanged });
           return true;
         } catch (e) {
           if (e instanceof SyncCancelled) {
@@ -219,27 +191,47 @@ export class SyncService implements vscode.Disposable {
           return false;
         }
       },
-    );
+    ).then((ok) => {
+      rememberDaemons();
+      return ok;
+    });
   }
 
-  /** Writes workspace.json when its content changed. Returns true if it did. */
-  private writeWorkspaceJson(model: ProjectModel): boolean {
+  /** Stops the daemons our syncs started (window closing, project closed). */
+  stopStartedDaemons(): void {
+    if (this.startedDaemons.size === 0) return;
+    const stopped = stopDaemons(this.startedDaemons);
+    if (stopped.length > 0) log().info(`Stopped ${stopped.length} JVM daemon(s) started by Koda syncs: ${stopped.join(', ')}`);
+    this.startedDaemons.clear();
+    void this.context.workspaceState.update(DAEMONS_KEY, []);
+  }
+
+  /** Deletes the synced model, so the next sync is a first one (Clear Caches). */
+  clearData(): void {
+    this.model = undefined;
+    this.lastWrittenHash = undefined;
+    fs.rmSync(this.dataDir, { recursive: true, force: true });
+    this.setState({ kind: 'idle' });
+  }
+
+  /** Writes modules.json when its content changed. Returns true if it did. */
+  private writeModulesJson(model: ProjectModel): boolean {
     const config = readConfig(this.folder.uri);
-    const { workspace, warnings } = toWorkspaceJson(model, {
+    const { modules, warnings } = toModulesJson(model, {
       librarySources: config.librarySources,
       androidSdkSources: config.androidSdkSources,
     });
     for (const warning of warnings) log().warn(warning);
-    const text = JSON.stringify(workspace);
+    const text = JSON.stringify(modules);
     const hash = createHash('sha256').update(text).digest('hex');
-    if (this.lastWrittenHash === undefined && fs.existsSync(this.workspaceJsonFile)) {
-      this.lastWrittenHash = createHash('sha256').update(fs.readFileSync(this.workspaceJsonFile, 'utf8')).digest('hex');
+    if (this.lastWrittenHash === undefined && fs.existsSync(this.modulesFile)) {
+      this.lastWrittenHash = createHash('sha256').update(fs.readFileSync(this.modulesFile, 'utf8')).digest('hex');
     }
     if (hash === this.lastWrittenHash) return false;
     fs.mkdirSync(this.dataDir, { recursive: true });
-    const temp = `${this.workspaceJsonFile}.tmp`;
+    const temp = `${this.modulesFile}.tmp`;
     fs.writeFileSync(temp, text);
-    fs.renameSync(temp, this.workspaceJsonFile);
+    fs.renameSync(temp, this.modulesFile);
     this.lastWrittenHash = hash;
     return true;
   }
@@ -251,10 +243,13 @@ export class SyncService implements vscode.Disposable {
 
   dispose(): void {
     this.abort?.abort();
+    if (readConfig(this.folder.uri).stopDaemonsOnClose) this.stopStartedDaemons();
     this.stateEmitter.dispose();
     this.syncedEmitter.dispose();
   }
 }
+
+const DAEMONS_KEY = 'koda.startedDaemons';
 
 function collectProblems(model: ProjectModel): SyncProblem[] {
   return [...model.problems, ...model.projects.flatMap((p) => p.extras?.problems ?? [])];

@@ -50,7 +50,8 @@ class CodeActionRegistry {
             // Register default providers here as they are implemented
             // registry.registerProvider(org.kotlinlsp.actions.codeaction.providers.AddTodoCommentFactory())
             registry.registerProvider(org.kotlinlsp.actions.codeaction.providers.AddImportFactory())
-            registry.registerProvider(org.kotlinlsp.actions.codeaction.providers.ImplementMethodsFactory())
+            // Replaces the fork's ImplementMethodsFactory (named classes and interfaces only, members matched by name).
+            registry.registerProvider(org.kotlinlsp.actions.codeaction.providers.ImplementMembersFactory())
             // registry.registerProvider(AddReturnExpressionFactory())
             
             return registry

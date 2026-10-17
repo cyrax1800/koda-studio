@@ -10,6 +10,7 @@
 
 package org.kotlinlsp.actions.hover
 
+import org.kotlinlsp.actions.compose.stabilityHover
 import com.intellij.psi.javadoc.PsiDocComment
 import com.intellij.psi.util.parentOfType
 import org.eclipse.lsp4j.Position
@@ -49,7 +50,7 @@ fun hoverAction(ktFile: KtFile, position: Position, index: Index): Pair<String, 
     }
     var docText = ""
     if (sourceSymbols.isNotEmpty()) {
-        val kdoc = sourceSymbols.distinct().first().allChildren.toList().find { ele -> ele is KDoc || ele is PsiDocComment }
+        val kdoc = sourceSymbols.distinct().firstOrNull()?.allChildren?.toList()?.find { ele -> ele is KDoc || ele is PsiDocComment }
         if (kdoc != null) {
             docText = kdoc.text
         }
@@ -57,7 +58,8 @@ fun hoverAction(ktFile: KtFile, position: Position, index: Index): Pair<String, 
     val symbol = analyze(ktElement){
         (
         if (ktElement is KtDeclaration) ktElement.symbol
-        else ktElement.mainReference?.resolveToSymbols()?.first() as? KaDeclarationSymbol ?: return null
+        // Nothing resolved (code outside any module, or unresolved): no hover rather than an error.
+        else ktElement.mainReference?.resolveToSymbols()?.firstOrNull() as? KaDeclarationSymbol ?: return null
         ).createPointer()
     }
     var text = analyze(ktElement){
@@ -71,6 +73,10 @@ fun hoverAction(ktFile: KtFile, position: Position, index: Index): Pair<String, 
     text = formattedText(text)
     if(docText.isNotEmpty()){
         text = "$text\n\n---\n\n${formatter.formatDoc(docText)}\n"
+    }
+    // Composables and their parameters: stability as skydoves' Compose Stability Analyzer reports it.
+    if (org.kotlinlsp.common.LaunchOptions.composeStability) {
+        analyze(ktElement) { stabilityHover(symbol.restoreSymbol()?.psi) }?.let { text = "$text\n\n---\n\n$it\n" }
     }
     return Pair(text, range)
 }

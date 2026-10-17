@@ -28,8 +28,6 @@ import com.intellij.psi.stubs.PsiFileStubImpl
 import com.intellij.util.indexing.FileContentImpl
 import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
 import org.jetbrains.kotlin.analysis.api.impl.base.symbols.pointers.SmartPointerIncompatiblePsiFile
-import org.jetbrains.kotlin.analysis.decompiler.konan.K2KotlinNativeMetadataDecompiler
-import org.jetbrains.kotlin.analysis.decompiler.konan.KlibMetaFileType
 import org.jetbrains.kotlin.analysis.decompiler.psi.KotlinBuiltInDecompiler
 import org.jetbrains.kotlin.analysis.decompiler.psi.KotlinBuiltInFileType
 import org.jetbrains.kotlin.analysis.decompiler.stub.file.ClsKotlinBinaryClassCache
@@ -49,7 +47,6 @@ class KotlinStubBuilder(project: Project) {
     companion object {
         fun instance(project: Project): KotlinStubBuilder = project.getService(KotlinStubBuilder::class.java)
         private val BUILTINS by lazy { KotlinBuiltInDecompiler() }
-        private val KLIB by lazy { K2KotlinNativeMetadataDecompiler() }
     }
 
     private val psiManager = PsiManager.getInstance(project)
@@ -62,13 +59,10 @@ class KotlinStubBuilder(project: Project) {
         val fileType = file.fileType
         val stubBuilder = when {
             cache.isKotlinJvmCompiledFile(file, bytes) && fileType === JavaClassFileType.INSTANCE ->
-                KotlinClsStubBuilder()
+                KotlinClsStubBuilder
 
             fileType == KotlinBuiltInFileType && file.extension != BuiltInSerializerProtocol.BUILTINS_FILE_EXTENSION ->
                 BUILTINS.stubBuilder
-
-            fileType == KlibMetaFileType ->
-                KLIB.stubBuilder
 
             else -> null
         } ?: return null
@@ -107,7 +101,6 @@ class JavaStubBuilder(project: Project) {
             cache.isKotlinJvmCompiledFile(file, bytes) && fileType == JavaClassFileType.INSTANCE -> return null
             fileType == KotlinBuiltInFileType
                     && file.extension != BuiltInSerializerProtocol.BUILTINS_FILE_EXTENSION -> return null
-            fileType == KlibMetaFileType -> return null
             fileType != JavaClassFileType.INSTANCE -> return null
             ClassFileViewProvider.isInnerClass(file, bytes) -> return null
             file.name == "module-info.class" -> return null

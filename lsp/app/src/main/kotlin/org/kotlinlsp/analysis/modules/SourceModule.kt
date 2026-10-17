@@ -1,5 +1,6 @@
 /*
  * Copyright 2026  Kumarapu Hemram
+ * Modified 2026 by Koda Studio contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -10,6 +11,7 @@
 
 package org.kotlinlsp.analysis.modules
 
+import org.jetbrains.kotlin.cli.common.arguments.toLanguageVersionSettings
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
@@ -36,7 +38,13 @@ class SourceModule(
     val javaVersion: JvmTarget,
     val kotlinVersion: LanguageVersion,
     private val project: Project,
+    /** The module's Kotlin compiler arguments (`-Xexplicit-backing-fields`, `-opt-in=…`, …); language version excluded. */
+    val compilerArguments: List<String> = emptyList(),
+    /** Ids of the [dependencies] whose `internal` declarations this module may use (a test module's main module). */
+    val friendIds: Set<String> = emptySet(),
 ) : Module {
+    private val languageSettings: LanguageVersionSettings by lazy { languageVersionSettingsOf(kotlinVersion, compilerArguments) }
+
     override val sourceRoots: List<Path>?
         get() = contentRoots // For source modules, sourceRoots are the same as contentRoots
     override val isSourceModule: Boolean
@@ -82,11 +90,11 @@ class SourceModule(
             override val directDependsOnDependencies: List<KaModule>
                 get() = emptyList() // Not supporting KMP right now
             override val directFriendDependencies: List<KaModule>
-                get() = emptyList() // No support for this right now
+                get() = dependencies.filter { it.id in friendIds }.map { it.kaModule }
             override val directRegularDependencies: List<KaModule>
                 get() = dependencies.map { it.kaModule }
             override val languageVersionSettings: LanguageVersionSettings
-                get() = LanguageVersionSettingsImpl(kotlinVersion, ApiVersion.createByLanguageVersion(kotlinVersion))
+                get() = languageSettings
 
             @KaExperimentalApi
             override val moduleDescription: String
@@ -98,5 +106,33 @@ class SourceModule(
             override val targetPlatform: TargetPlatform
                 get() = JvmPlatforms.jvmPlatformByTargetVersion(javaVersion)
         }
+    }
+}
+
+/**
+ * Language settings as the compiler derives them from the module's arguments, so language features (explicit backing
+ * fields, context parameters, …) and opt-ins match the build. The language version is the one already capped to
+ * what this compiler supports; an API version above it is dropped.
+ */
+internal fun languageVersionSettingsOf(languageVersion: LanguageVersion, compilerArguments: List<String>): LanguageVersionSettings =
+    // Modules mostly share their arguments, and parsing them goes through reflection: the first completion in a file
+    // creates the sessions of its module's dependencies too, and spent seconds here.
+    languageSettingsByArguments.getOrPut(languageVersion to compilerArguments) { parseLanguageVersionSettings(languageVersion, compilerArguments) }
+
+private val languageSettingsByArguments = java.util.concurrent.ConcurrentHashMap<Pair<LanguageVersion, List<String>>, LanguageVersionSettings>()
+
+private fun parseLanguageVersionSettings(languageVersion: LanguageVersion, compilerArguments: List<String>): LanguageVersionSettings {
+    val fallback = LanguageVersionSettingsImpl(languageVersion, ApiVersion.createByLanguageVersion(languageVersion))
+    if (compilerArguments.isEmpty()) return fallback
+    return try {
+        val arguments = org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments()
+        org.jetbrains.kotlin.cli.common.arguments.parseCommandLineArguments(compilerArguments, arguments)
+        arguments.languageVersion = languageVersion.versionString
+        val apiVersion = arguments.apiVersion?.let { LanguageVersion.fromVersionString(it) }
+        if (apiVersion == null || apiVersion > languageVersion) arguments.apiVersion = null
+        arguments.toLanguageVersionSettings(org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArgumentsConfigurator.Reporter.DoNothing)
+    } catch (e: Exception) {
+        org.kotlinlsp.common.warn("Ignoring compiler arguments $compilerArguments: ${e.message}")
+        fallback
     }
 }

@@ -1,6 +1,8 @@
 /*
  * Copyright 2026  Kumarapu Hemram
  *
+ * Modified 2026 by Koda Studio contributors.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -10,6 +12,7 @@
 
 package org.kotlinlsp.actions.autocomplete
 
+import org.kotlinlsp.common.LaunchOptions
 import org.eclipse.lsp4j.CompletionItemKind
 import org.eclipse.lsp4j.CompletionItemLabelDetails
 import org.eclipse.lsp4j.InsertTextFormat
@@ -53,12 +56,20 @@ fun Declaration.details(): CompletionItemLabelDetails = when (this) {
     // }
 }
 
+/** The receiver (short type text, e.g. "LifecycleOwner") of a top-level, non-private extension function or property. */
+val Declaration.extensionReceiver: String?
+    get() = when (this) {
+        is Declaration.Function -> receiverFqName.takeIf { isExtension && isTopLevel && !isPrivate }
+        is Declaration.Field -> receiverFqName.takeIf { isExtension && isTopLevel && !isPrivate }
+        else -> null
+    }?.takeIf { it.isNotEmpty() }
+
 fun Declaration.insertInfo(): Pair<String, InsertTextFormat> = when (this) {
     is Declaration.Class -> name to InsertTextFormat.PlainText
     is Declaration.EnumEntry -> "${enumFqName.substringAfterLast('.')}.${name}" to InsertTextFormat.PlainText
-    is Declaration.Function -> "${name}(${
-        parameters.mapIndexed { index, param -> "\${${index + 1}:${param.name}}" }.joinToString(", ")
-    })" to InsertTextFormat.Snippet
+    is Declaration.Function ->
+        callSnippet(name, parameters.map { SnippetParameter(it.name, isRequired = !it.hasDefault, isFunctional = "->" in it.type) }, LaunchOptions.namedArguments) to
+            InsertTextFormat.Snippet
 
     is Declaration.Field -> name to InsertTextFormat.PlainText
     // is Declaration.Constructor -> "${name}(${

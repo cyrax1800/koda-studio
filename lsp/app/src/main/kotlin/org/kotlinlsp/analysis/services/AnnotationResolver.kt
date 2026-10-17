@@ -52,7 +52,7 @@ class AnnotationsResolver(
     }
 
     override fun declarationsByAnnotation(annotationClassId: ClassId): Set<KtAnnotated> =
-        profile("declarationsByAnnotation", "$annotationClassId") {
+        profile("declarationsByAnnotation") {
             allDeclarations().asSequence()
                 .filter { annotationClassId in annotationsOnDeclaration(it) }
                 .toSet()
@@ -90,7 +90,7 @@ class AnnotationsResolver(
     }
 
     override fun annotationsOnDeclaration(declaration: KtAnnotated): Set<ClassId> =
-        profile("annotationsOnDeclaration", "$declaration") {
+        profile("annotationsOnDeclaration") {
             // This one is straight copied from standalone platform
             declaration.annotationEntries
                 .asSequence()

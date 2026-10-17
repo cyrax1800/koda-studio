@@ -1,5 +1,6 @@
 /*
  * Copyright 2026  Kumarapu Hemram
+ * Modified 2026 by Koda Studio contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +30,10 @@ data class SerializedModule(
     val isSource: Boolean,
     // SourceModule
     val kotlinVersion: String? = null,
+    /** Kotlin compiler arguments of a source module, e.g. `-Xexplicit-backing-fields` or `-opt-in=…`. */
+    val compilerArguments: List<String>? = null,
+    /** Dependencies whose `internal` declarations this module sees, as the compiler's `-Xfriend-paths`: test → main. */
+    val friends: List<String>? = null,
     // LibraryModule
     val isJdk: Boolean? = null,
 )
@@ -49,6 +54,8 @@ fun serializeModules(modules: List<Module>): String {
                 contentRoots = current.contentRoots.map { it.absolutePathString() },
                 sourceRoots = current.sourceRoots?.map { it.absolutePathString() },
                 kotlinVersion = current.kotlinVersion.versionString,
+                compilerArguments = current.compilerArguments,
+                friends = current.friendIds.toList().ifEmpty { null },
                 javaVersion = current.javaVersion.toString(),
                 dependencies = current.dependencies.map { it.id },
                 isSource = current.isSourceModule
@@ -100,8 +107,8 @@ fun buildModulesGraph(
                 if (serialized.isSource) {
                     SourceModule(
                         id = id,
-                        kotlinVersion = LanguageVersion.fromVersionString(serialized.kotlinVersion ?: "2.1")!!,
-                        javaVersion = JvmTarget.fromString(serialized.javaVersion)!!,
+                        kotlinVersion = languageVersionOf(serialized.kotlinVersion),
+                        javaVersion = jvmTargetOf(serialized.javaVersion),
                         contentRoots = serialized.contentRoots.map { Path(it) },
                         dependencies = emptyList(), // Break the cycle by not including dependencies
                         project = project
@@ -109,7 +116,7 @@ fun buildModulesGraph(
                 } else {
                     LibraryModule(
                         id = id,
-                        javaVersion = JvmTarget.fromString(serialized.javaVersion)!!,
+                        javaVersion = jvmTargetOf(serialized.javaVersion),
                         isJdk = serialized.isJdk ?: false,
                         contentRoots = serialized.contentRoots.map { Path(it) },
                         sourceRoots = serialized.sourceRoots?.map { Path(it) },
@@ -146,16 +153,18 @@ private fun buildModule(
     if(it.isSource) {
         SourceModule(
             id = it.id,
-            kotlinVersion = LanguageVersion.fromVersionString(it.kotlinVersion!!)!!,
-            javaVersion = JvmTarget.fromString(it.javaVersion)!!,
+            kotlinVersion = languageVersionOf(it.kotlinVersion),
+            javaVersion = jvmTargetOf(it.javaVersion),
             contentRoots = it.contentRoots.map { Path(it) },
             dependencies = deps,
-            project = project
+            project = project,
+            compilerArguments = it.compilerArguments.orEmpty(),
+            friendIds = it.friends.orEmpty().toSet(),
         )
     } else {
         LibraryModule(
             id = it.id,
-            javaVersion = JvmTarget.fromString(it.javaVersion)!!,
+            javaVersion = jvmTargetOf(it.javaVersion),
             isJdk = it.isJdk!!,
             contentRoots = it.contentRoots.map { Path(it) },
             sourceRoots = it.sourceRoots?.map { Path(it) },
@@ -164,3 +173,14 @@ private fun buildModule(
             appEnvironment = appEnvironment,
         )
     }
+
+/**
+ * Projects may use a newer language version than this compiler supports as stable (e.g. 2.3 on a 2.2 compiler).
+ * Analysing with an unstable version breaks resolution, so anything newer, or unknown, uses the newest stable one.
+ */
+private fun languageVersionOf(value: String?): LanguageVersion {
+    val version = value?.let { LanguageVersion.fromVersionString(it) } ?: return LanguageVersion.LATEST_STABLE
+    return if (version > LanguageVersion.LATEST_STABLE) LanguageVersion.LATEST_STABLE else version
+}
+
+private fun jvmTargetOf(value: String): JvmTarget = JvmTarget.fromString(value) ?: JvmTarget.DEFAULT

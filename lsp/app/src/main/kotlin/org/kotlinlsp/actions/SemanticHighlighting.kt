@@ -47,11 +47,15 @@ enum class TokenModifier(val value: Int) {
     ASYNC(6), MODIFICATION(7), DOCUMENTATION(8), DEFAULT_LIBRARY(9)
 }
 
-fun semanticHighlightingAction(ktFile: KtFile): SemanticTokens {
+/**
+ * [resolve] false: references are classified by name and position instead of by analysis, for a library's source that
+ * go to definition opened (`Row.kt`), which belongs to no module. Without this it got no highlighting beyond keywords.
+ */
+fun semanticHighlightingAction(ktFile: KtFile, resolve: Boolean = true): SemanticTokens {
     val tokens = mutableListOf<SemanticToken>()
     
     // Collect all semantic tokens from the file
-    collectSemanticTokens(ktFile, tokens)
+    collectSemanticTokens(ktFile, tokens, resolve)
     
     // Convert to LSP format (delta encoding)
     val data = mutableListOf<Int>()
@@ -77,7 +81,7 @@ fun semanticHighlightingAction(ktFile: KtFile): SemanticTokens {
     return SemanticTokens(data)
 }
 
-fun semanticHighlightingRangeAction(ktFile: KtFile, range: Range): SemanticTokens {
+fun semanticHighlightingRangeAction(ktFile: KtFile, range: Range, resolve: Boolean = true): SemanticTokens {
     val tokens = mutableListOf<SemanticToken>()
     
     // Convert LSP range to offset range
@@ -85,7 +89,7 @@ fun semanticHighlightingRangeAction(ktFile: KtFile, range: Range): SemanticToken
     val endOffset = range.end.line * 1000 + range.end.character
     
     // Collect semantic tokens only in the specified range
-    collectSemanticTokensInRange(ktFile, tokens, startOffset, endOffset)
+    collectSemanticTokensInRange(ktFile, tokens, startOffset, endOffset, resolve)
     
     // Convert to LSP format (delta encoding)
     val data = mutableListOf<Int>()
@@ -111,7 +115,8 @@ fun semanticHighlightingRangeAction(ktFile: KtFile, range: Range): SemanticToken
     return SemanticTokens(data)
 }
 
-private fun collectSemanticTokens(ktFile: KtFile, tokens: MutableList<SemanticToken>) {
+private fun collectSemanticTokens(ktFile: KtFile, tokens: MutableList<SemanticToken>, resolve: Boolean = true) {
+    val declared = if (resolve) emptyMap() else declaredKinds(ktFile)
     // Traverse all elements in the file
     PsiTreeUtil.processElements(ktFile) { element ->
         when (element) {
@@ -120,7 +125,8 @@ private fun collectSemanticTokens(ktFile: KtFile, tokens: MutableList<SemanticTo
             is KtProperty -> addPropertyToken(element, tokens)
             is KtParameter -> addParameterToken(element, tokens)
             is KtTypeReference -> addTypeToken(element, tokens)
-            is KtNameReferenceExpression -> addReferenceToken(element, tokens, ktFile)
+            is KtNameReferenceExpression ->
+                if (resolve) addReferenceToken(element, tokens, ktFile) else addSyntacticReferenceToken(element, tokens, declared)
             // Add more element types as needed
         }
         true
@@ -131,11 +137,12 @@ private fun collectSemanticTokensInRange(
     ktFile: KtFile, 
     tokens: MutableList<SemanticToken>, 
     startOffset: Int, 
-    endOffset: Int
+    endOffset: Int,
+    resolve: Boolean = true,
 ) {
     // For simplicity, collect all tokens and filter by range
     // In a real implementation, you'd want to be more efficient
-    collectSemanticTokens(ktFile, tokens)
+    collectSemanticTokens(ktFile, tokens, resolve)
     tokens.removeAll { token ->
         val tokenStart = token.deltaLine * 1000 + token.deltaStart
         tokenStart < startOffset || tokenStart > endOffset
@@ -300,3 +307,53 @@ private fun addReferenceToken(element: KtNameReferenceExpression, tokens: Mutabl
         ))
     }
 } 
+/** What each name declared in [ktFile] is, for highlighting its uses without analysis. */
+private fun declaredKinds(ktFile: KtFile): Map<String, TokenType> {
+    val kinds = HashMap<String, TokenType>()
+    PsiTreeUtil.processElements(ktFile) { element ->
+        val kind = when (element) {
+            is KtClass -> when {
+                element.isInterface() -> TokenType.INTERFACE
+                element.isEnum() -> TokenType.ENUM
+                else -> TokenType.CLASS
+            }
+            is KtObjectDeclaration -> TokenType.CLASS
+            is KtTypeAlias -> TokenType.TYPE
+            is KtNamedFunction -> if (element.parent is KtFile) TokenType.FUNCTION else TokenType.METHOD
+            is KtProperty -> if (element.isLocal) TokenType.VARIABLE else TokenType.PROPERTY
+            is KtParameter -> if (element.hasValOrVar()) TokenType.PROPERTY else TokenType.PARAMETER
+            else -> null
+        }
+        if (kind != null) (element as KtNamedDeclaration).name?.let { kinds.putIfAbsent(it, kind) }
+        true
+    }
+    return kinds
+}
+
+/**
+ * A reference highlighted by its name and position: a call is a function (a class only if this file declares one by
+ * that name; composables are capitalized functions), a name declared in this file is what it declares, a capitalized
+ * name is a class, a name after a dot a property. Names in types are highlighted as types already.
+ */
+private fun addSyntacticReferenceToken(element: KtNameReferenceExpression, tokens: MutableList<SemanticToken>, declared: Map<String, TokenType>) {
+    if (element.parent is KtUserType) return
+    val name = element.getReferencedName()
+    // In `import`s and the `package` line only classes are colored, as with analysis; package names stay plain.
+    if (PsiTreeUtil.getParentOfType(element, KtImportDirective::class.java, KtPackageDirective::class.java) != null) {
+        if (name.firstOrNull()?.isUpperCase() != true) return
+        val range = element.textRange.toLspRange(element.containingFile)
+        tokens.add(SemanticToken(range.start.line, range.start.character, element.textLength, TokenType.CLASS.value, 0))
+        return
+    }
+    val isCallee = (element.parent as? KtCallExpression)?.calleeExpression == element
+    val ownKind = declared[name]
+    val type = when {
+        isCallee -> if (ownKind == TokenType.CLASS || ownKind == TokenType.ENUM) ownKind else if (ownKind == TokenType.METHOD) TokenType.METHOD else TokenType.FUNCTION
+        ownKind != null -> ownKind
+        name.firstOrNull()?.isUpperCase() == true -> TokenType.CLASS
+        (element.parent as? KtQualifiedExpression)?.selectorExpression == element -> TokenType.PROPERTY
+        else -> return
+    }
+    val range = element.textRange.toLspRange(element.containingFile)
+    tokens.add(SemanticToken(range.start.line, range.start.character, element.textLength, type.value, 0))
+}

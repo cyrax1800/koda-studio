@@ -6,3 +6,5 @@ sidecar/.gradle/
 sidecar/.kotlin/
 sidecar/build/
 .vscode-test/
+server/kotlin-lsp/
+.e2e-results/

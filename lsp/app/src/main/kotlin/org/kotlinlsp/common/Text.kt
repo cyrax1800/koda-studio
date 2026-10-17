@@ -89,9 +89,25 @@ fun String.normalizeUri(): String {
             this
         }
     } catch (e: Exception) {
-        info("normalizeUri failed on ‘$this’, returning original. reason: ${e.message}")
+        // The client sends file URIs unencoded (`…/Application Support/…`), which `URI` rejects; they are already in
+        // the form the server uses. Logging each one only filled the output.
+        if (!any { it == ' ' }) info("normalizeUri failed on ‘$this’, returning original. reason: ${e.message}")
         this
     }
+}
+
+/**
+ * The file path of a `file:` URI, percent-encoded or as the client sends it, with spaces as they are
+ * (`file:///Users/me/Library/Application Support/…`). `File(URI(…))` threw on those, so a project or the server's
+ * index under such a folder broke navigation in library sources, formatting, and startup.
+ */
+fun String.uriToPath(): String {
+    if (!startsWith("file:")) return this
+    runCatching { return Paths.get(URI(this)).toString() }
+    var raw = removePrefix("file://")
+    // `file:///C:/…` on Windows.
+    if (Regex("^/[A-Za-z]:").containsMatchIn(raw)) raw = raw.drop(1)
+    return Paths.get(raw).toString()
 }
 
 private fun String.fixWindowsFileUri(): String {

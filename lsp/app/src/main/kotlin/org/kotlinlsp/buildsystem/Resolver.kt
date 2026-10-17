@@ -1,5 +1,6 @@
 /*
  * Copyright 2026  Kumarapu Hemram
+ * Modified 2026 by Koda Studio contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +18,7 @@ import org.kotlinlsp.analysis.ProgressNotifier
 import org.kotlinlsp.analysis.modules.Module
 import org.kotlinlsp.analysis.modules.deserializeModules
 import org.kotlinlsp.analysis.modules.serializeModules
+import org.kotlinlsp.common.LaunchOptions
 import org.kotlinlsp.common.getCachePath
 import org.kotlinlsp.common.info
 import org.kotlinlsp.common.profile
@@ -36,12 +38,14 @@ class BuildSystemResolver(
     private val versionFile = cachePath.resolve("buildsystem-version.json")
     private val cachedModulesFile = cachePath.resolve("buildsystem.json")
 
-    private val BUILD_SYSTEMS: List<BuildSystem> = listOf(
+    private val BUILD_SYSTEMS: List<BuildSystem> = LaunchOptions.modulesFile?.let {
+        listOf(FileBasedBuildSystem(project, appEnvironment, rootFolder, it))
+    } ?: listOf(
         FileBasedBuildSystem(project, appEnvironment, rootFolder),
         GradleBuildSystem(project, appEnvironment, rootFolder, progressNotifier)
     )
 
-    fun resolveModules(): List<Module> = profile("BuildSystemResolver", "") {
+    fun resolveModules(): List<Module> = profile("BuildSystemResolver") {
         val version = readVersionFile(versionFile)
 
         BUILD_SYSTEMS.forEach {

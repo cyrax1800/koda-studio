@@ -1,5 +1,6 @@
 /*
  * Copyright 2026  Kumarapu Hemram
+ * Modified 2026 by Koda Studio contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -10,6 +11,9 @@
 
 package org.kotlinlsp.index
 
+import org.kotlinlsp.common.ServerStatus
+import com.intellij.psi.PsiJavaFile
+import com.intellij.openapi.vfs.VirtualFileManager
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
@@ -55,13 +59,6 @@ class Index(
         .maximumSize(100)
         .build<String, KtFile>()
 
-    private val sourceFileCache: List<KtFile> = modules.asFlatSequence()
-            .filter { it.isSourceModule }
-            .map { it.computeFiles(extended = true) }
-            .flatten()
-            .mapNotNull { getKtFile(it) }
-            .toList()
-
     fun syncIndexInBackground() {
         // We have 2 threads here
         // Scan files -> It scans files to index, loads them as a KtFile and submits them to a work queue
@@ -69,9 +66,22 @@ class Index(
         // The scan files thread will stop when the background indexing is done, while the worker is kept alive
         // for the duration of the server. It will keep receiving work whenever a KtFile is edited by the user so the
         // index is always up to date
+        ServerStatus.setPhase(ServerStatus.Phase.INDEXING)
         workerThread.start()
         scanFilesThread.start()
     }
+
+    /** Drops a deleted file's declarations, and the parsed copy kept for files that aren't open. */
+    fun removeFile(url: String) {
+        ktFileCache.invalidate(url)
+        db.removeFile(url)
+    }
+
+    /** Forgets the parsed copy of a file that changed on disk. */
+    fun forgetCachedFile(url: String) = ktFileCache.invalidate(url)
+
+    /** Indexes [ktFile] on this thread, for changes that must be visible before the next analysis. */
+    fun indexNow(ktFile: KtFile) = org.kotlinlsp.index.worker.indexKtFile(project, ktFile, db)
 
     fun queueOnFileChanged(ktFile: KtFile) {
         workerThreadRunner.submitCommand(Command.IndexModifiedFile(ktFile))
@@ -83,6 +93,7 @@ class Index(
         scanFilesThread.join()
         workerThread.join()
 
+        wordIndex.save()
         db.close()
     }
 
@@ -119,9 +130,53 @@ class Index(
         return ktFile
     }
 
-    fun getAllSourceKtFiles(): List<KtFile> {
-        return sourceFileCache
+    /**
+     * Kotlin source files of all source modules whose text contains [word] as a whole identifier. Open files are checked
+     * with their current (possibly unsaved) text. This is the cheap first pass of find-references: only these files
+     * are then resolved.
+     */
+    fun sourceFilesMentioning(word: String): List<KtFile> {
+        if (word.isEmpty()) return emptyList()
+        val pattern = wordPattern(word)
+        // Open files by their current, possibly unsaved, text; the others through the word index.
+        val opened = openedFiles.filter { (_, file) -> pattern.containsMatchIn(file.text) }.values
+        val onDisk = wordIndex.filesMentioning(word)
+            .filter { it.endsWith(".kt") && "file://$it" !in openedFiles }
+            .mapNotNull { path -> VirtualFileManager.getInstance().findFileByUrl("file://$path")?.let(::getKtFile) }
+        return opened + onDisk
     }
+
+    /** Java files of the source modules (including generated Hilt/Dagger/Room code) that contain [word] as a word. */
+    fun javaFilesMentioning(word: String): List<PsiJavaFile> {
+        if (word.isEmpty()) return emptyList()
+        return wordIndex.filesMentioning(word)
+            .filter { it.endsWith(".java") }
+            .mapNotNull { path ->
+                val virtualFile = VirtualFileManager.getInstance().findFileByUrl("file://$path") ?: return@mapNotNull null
+                PsiManager.getInstance(project).findFile(virtualFile) as? PsiJavaFile
+            }
+    }
+
+    /** Which source files contain an identifier; see [WordIndex]. */
+    private val wordIndex = WordIndex(
+        roots = { modules.asFlatSequence().filterIsInstance<SourceModule>().flatMap { it.contentRoots.asSequence() }.toList() },
+        saveFile = org.kotlinlsp.common.getCachePath(rootFolder).resolve("word-index.bin"),
+    )
+
+    /**
+     * Reads the source files for find references in the background, so the first search doesn't wait for it. Analysis
+     * uses it too (sealed classes' inheritors), so it starts right away.
+     */
+    fun warmUpWordIndex() {
+        Thread({
+            runCatching { wordIndex.warmUp() }.onFailure { org.kotlinlsp.common.warn("Word index failed: $it") }
+        }, "KotlinLSP-word-index").apply { isDaemon = true; priority = Thread.MIN_PRIORITY }.start()
+    }
+
+    /** Keeps the word index current for a file created, changed or deleted on disk. */
+    fun sourceFileChangedOnDisk(url: String) = wordIndex.update(url.removePrefix("file://"))
+
+    private fun wordPattern(word: String) = Regex("(?<![\\p{L}\\p{N}_])${Regex.escape(word)}(?![\\p{L}\\p{N}_])")
 
     fun addVirtualFileToModuleScope(virtualFile: VirtualFile) {
         modules.asFlatSequence()

@@ -21,6 +21,7 @@ import java.util.logging.Level
 import java.util.logging.LogRecord
 import java.util.logging.Logger
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.measureTime
 
@@ -46,10 +47,10 @@ private fun LogLevel.asMessageType(): MessageType {
 
 // Configure as needed
 private val logLevel = LogLevel.Debug
-private const val profileEnabled = true
+const val profileEnabled = true
 
 private lateinit var logger: LSPLogger
-private val profileInfo = mutableMapOf<String, Pair<Int, Duration>>()
+private val profileInfo = java.util.concurrent.ConcurrentHashMap<String, Pair<Int, Duration>>()
 
 private class LSPLogger(val client: LanguageClient) {
     fun log(level: LogLevel, message: String) {
@@ -66,24 +67,23 @@ fun setupLogger(client: LanguageClient) {
     Logger.getLogger("").addHandler(JULRedirector())
 }
 
-fun <T> profile(tag: String, message: String, fn: () -> T): T {
-    trace("$tag $message")
-
-    if(profileEnabled) {
-        var result: T
-        val time = measureTime {
-            result = fn()
-        }
-        if(!profileInfo.containsKey(tag)) {
-            profileInfo[tag] = Pair(1, time)
-        } else {
-            val value = profileInfo[tag]!!
-            profileInfo[tag] = Pair(value.first + 1, value.second.plus(time))
-        }
-        return result
-    } else {
+/**
+ * Times [fn] under [tag] for the PROFILE INFO summary. Called from every analysis thread, and thousands of times per
+ * analysis: no per-call message (they were built from PSI elements and modules even though trace logging is off), and a
+ * concurrent map (a plain one, written by several threads, could corrupt).
+ */
+inline fun <T> profile(tag: String, fn: () -> T): T {
+    if (!profileEnabled) return fn()
+    val start = System.nanoTime()
+    try {
         return fn()
+    } finally {
+        recordProfile(tag, System.nanoTime() - start)
     }
+}
+
+fun recordProfile(tag: String, nanos: Long) {
+    profileInfo.merge(tag, Pair(1, nanos.nanoseconds)) { a, b -> Pair(a.first + b.first, a.second + b.second) }
 }
 
 fun profileJvmStartup() {

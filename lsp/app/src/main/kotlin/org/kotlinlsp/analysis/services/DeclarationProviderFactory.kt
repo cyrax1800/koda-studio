@@ -1,6 +1,8 @@
 /*
  * Copyright 2026  Kumarapu Hemram
  *
+ * Modified 2026 by Koda Studio contributors.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,7 +16,6 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.analysis.api.platform.declarations.*
 import org.jetbrains.kotlin.analysis.api.platform.mergeSpecificProviders
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
@@ -44,7 +45,7 @@ class DeclarationProvider(
         get() = false
 
     override fun findFilesForFacade(facadeFqName: FqName): Collection<KtFile> =
-        profile("findFilesForFacade", "$facadeFqName") {
+        profile("findFilesForFacade") {
             if (facadeFqName.shortNameOrSpecial().isSpecial) return@profile emptyList()
             // According to standalone platform, this does not work with classes with @JvmPackageName
             findFilesForFacadeByPackage(facadeFqName.parent())
@@ -52,7 +53,7 @@ class DeclarationProvider(
         }
 
     override fun findInternalFilesForFacade(facadeFqName: FqName): Collection<KtFile> =
-        profile("findInternalFilesForFacade", "$facadeFqName") {
+        profile("findInternalFilesForFacade") {
             // We don't deserialize libraries from stubs so we can return empty here safely
             // We don't take the KaBuiltinsModule into account for simplicity,
             // that means we expect the kotlin stdlib to be included on the project
@@ -60,49 +61,33 @@ class DeclarationProvider(
         }
 
     override fun findFilesForFacadeByPackage(packageFqName: FqName): Collection<KtFile> =
-        profile("findFilesForFacadeByPackage", "$packageFqName") {
+        profile("findFilesForFacadeByPackage") {
             ktFilesForPackage(packageFqName).toList()
         }
 
     override fun findFilesForScript(scriptFqName: FqName): Collection<KtScript> =
-        profile("findFilesForScript", "$scriptFqName") {
+        profile("findFilesForScript") {
             ktFilesForPackage(scriptFqName).mapNotNull { it.script }.toList()
         }
 
     override fun getAllClassesByClassId(classId: ClassId): Collection<KtClassOrObject> =
-        profile("getAllClassesByClassId", "$classId") {
-            ktFilesForPackage(classId.packageFqName)
-                .map {
-                    project.read {
-                        PsiTreeUtil.collectElementsOfType(it, KtClassOrObject::class.java).asSequence()
-                    }
-                }
-                .flatten()
-                .filter { it.getClassId() == classId }
-                .toList()
+        profile("getAllClassesByClassId") {
+            declarationsOf(classId.packageFqName).classes[classId].orEmpty()
         }
 
     override fun getAllTypeAliasesByClassId(classId: ClassId): Collection<KtTypeAlias> =
-        profile("getAllTypeAliasesByClassId", "$classId") {
-            ktFilesForPackage(classId.packageFqName)
-                .map {
-                    project.read {
-                        PsiTreeUtil.collectElementsOfType(it, KtTypeAlias::class.java).asSequence()
-                    }
-                }
-                .flatten()
-                .filter { it.getClassId() == classId }
-                .toList()
+        profile("getAllTypeAliasesByClassId") {
+            declarationsOf(classId.packageFqName).typeAliases[classId].orEmpty()
         }
 
     override fun getClassLikeDeclarationByClassId(classId: ClassId): KtClassLikeDeclaration? =
-        profile("getClassLikeDeclarationByClassId", "$classId") {
+        profile("getClassLikeDeclarationByClassId") {
             getAllClassesByClassId(classId).firstOrNull()
                 ?: getAllTypeAliasesByClassId(classId).firstOrNull()
         }
 
     override fun getTopLevelCallableFiles(callableId: CallableId): Collection<KtFile> =
-        profile("getTopLevelCallableFiles", "$callableId") {
+        profile("getTopLevelCallableFiles") {
             buildSet {
                 getTopLevelProperties(callableId).mapTo(this) { it.containingKtFile }
                 getTopLevelFunctions(callableId).mapTo(this) { it.containingKtFile }
@@ -110,60 +95,59 @@ class DeclarationProvider(
         }
 
     override fun getTopLevelFunctions(callableId: CallableId): Collection<KtNamedFunction> =
-        profile("getTopLevelFunctions", "$callableId") {
-            ktFilesForPackage(callableId.packageName)
-                .map {
-                    project.read {
-                        PsiTreeUtil.collectElementsOfType(it, KtNamedFunction::class.java).asSequence()
-                    }
-                }
-                .flatten()
-                .filter { it.isTopLevel }
-                .filter { it.nameAsName == callableId.callableName }
-                .toList()
+        profile("getTopLevelFunctions") {
+            declarationsOf(callableId.packageName).functions[callableId.callableName].orEmpty()
         }
 
     override fun getTopLevelKotlinClassLikeDeclarationNamesInPackage(packageFqName: FqName): Set<Name> =
-        profile("getTopLevelKotlinClassLikeDeclarationNamesInPackage", "$packageFqName") {
-            ktFilesForPackage(packageFqName)
-                .map {
-                    project.read {
-                        PsiTreeUtil.collectElementsOfType(it, KtClassLikeDeclaration::class.java).asSequence()
-                    }
-                }
-                .flatten()
-                .filter { it.isTopLevelKtOrJavaMember() }
-                .mapNotNull { it.nameAsName }
-                .toSet()
+        profile("getTopLevelKotlinClassLikeDeclarationNamesInPackage") {
+            declarationsOf(packageFqName).classLikeNames
         }
 
     override fun getTopLevelCallableNamesInPackage(packageFqName: FqName): Set<Name> =
-        profile("getTopLevelCallableNamesInPackage", "$packageFqName") {
-            ktFilesForPackage(packageFqName)
-                .map {
-                    project.read {
-                        PsiTreeUtil.collectElementsOfType(it, KtCallableDeclaration::class.java).asSequence()
-                    }
-                }
-                .flatten()
-                .filter { it.isTopLevelKtOrJavaMember() }
-                .mapNotNull { it.nameAsName }
-                .toSet()
+        profile("getTopLevelCallableNamesInPackage") {
+            declarationsOf(packageFqName).callableNames
         }
 
     override fun getTopLevelProperties(callableId: CallableId): Collection<KtProperty> =
-        profile("getTopLevelProperties", "$callableId") {
-            ktFilesForPackage(callableId.packageName)
-                .map {
-                    project.read {
-                        PsiTreeUtil.collectElementsOfType(it, KtProperty::class.java).asSequence()
-                    }
-                }
-                .flatten()
-                .filter { it.isTopLevel }
-                .filter { it.nameAsName == callableId.callableName }
-                .toList()
+        profile("getTopLevelProperties") {
+            declarationsOf(callableId.packageName).properties[callableId.callableName].orEmpty()
         }
+
+    /**
+     * A package's declarations in [scope], read from its files once. Every query used to walk the whole PSI of every
+     * file in the package; on a large project that was most of a completion's time. A provider lives as long as its
+     * analysis session, which every edit replaces, so this can't go stale.
+     */
+    private class PackageDeclarations(
+        val classes: Map<ClassId, List<KtClassOrObject>>,
+        val typeAliases: Map<ClassId, List<KtTypeAlias>>,
+        val functions: Map<Name, List<KtNamedFunction>>,
+        val properties: Map<Name, List<KtProperty>>,
+        val classLikeNames: Set<Name>,
+        val callableNames: Set<Name>,
+    )
+
+    private val packages = java.util.concurrent.ConcurrentHashMap<FqName, PackageDeclarations>()
+
+    private fun declarationsOf(packageFqName: FqName): PackageDeclarations = packages.computeIfAbsent(packageFqName) {
+        val classes = HashMap<ClassId, MutableList<KtClassOrObject>>()
+        val typeAliases = HashMap<ClassId, MutableList<KtTypeAlias>>()
+        val functions = HashMap<Name, MutableList<KtNamedFunction>>()
+        val properties = HashMap<Name, MutableList<KtProperty>>()
+        val classLikeNames = HashSet<Name>()
+        val callableNames = HashSet<Name>()
+        for (file in ktFilesForPackage(packageFqName)) {
+            val declarations = project.read { fileDeclarations(file) }
+            for ((id, declaration) in declarations.classes) classes.getOrPut(id) { mutableListOf() }.add(declaration)
+            for ((id, declaration) in declarations.typeAliases) typeAliases.getOrPut(id) { mutableListOf() }.add(declaration)
+            for ((name, declaration) in declarations.functions) functions.getOrPut(name) { mutableListOf() }.add(declaration)
+            for ((name, declaration) in declarations.properties) properties.getOrPut(name) { mutableListOf() }.add(declaration)
+            classLikeNames += declarations.classLikeNames
+            callableNames += declarations.callableNames
+        }
+        PackageDeclarations(classes, typeAliases, functions, properties, classLikeNames, callableNames)
+    }
 
     private fun ktFilesForPackage(fqName: FqName): Sequence<KtFile> {
         return index.filesForPackage(fqName)
@@ -201,4 +185,48 @@ class DeclarationProviderMerger(private val project: Project) : KotlinDeclaratio
                 }
             }
         }
+}
+
+/** One file's declarations that a declaration provider serves (see [fileDeclarations]). */
+private class FileDeclarations(
+    val stamp: Long,
+    val classes: List<Pair<ClassId, KtClassOrObject>>,
+    val typeAliases: List<Pair<ClassId, KtTypeAlias>>,
+    val functions: List<Pair<Name, KtNamedFunction>>,
+    val properties: List<Pair<Name, KtProperty>>,
+    val classLikeNames: Set<Name>,
+    val callableNames: Set<Name>,
+)
+
+private val FILE_DECLARATIONS = com.intellij.openapi.util.Key.create<FileDeclarations>("org.kotlinlsp.fileDeclarations")
+
+/**
+ * [file]'s top-level and member declarations, read once per version of the file and kept on it. Every module's
+ * session has its own declaration provider, and each read the files of a package again: 40,000 lookups took 40 s
+ * while usages were searched across many modules.
+ */
+private fun fileDeclarations(file: KtFile): FileDeclarations {
+    val stamp = file.modificationStamp
+    file.getUserData(FILE_DECLARATIONS)?.takeIf { it.stamp == stamp }?.let { return it }
+    val classes = mutableListOf<Pair<ClassId, KtClassOrObject>>()
+    val typeAliases = mutableListOf<Pair<ClassId, KtTypeAlias>>()
+    val functions = mutableListOf<Pair<Name, KtNamedFunction>>()
+    val properties = mutableListOf<Pair<Name, KtProperty>>()
+    val classLikeNames = HashSet<Name>()
+    val callableNames = HashSet<Name>()
+    val pending = ArrayDeque<KtDeclaration>(file.declarations)
+    while (pending.isNotEmpty()) {
+        val declaration = pending.removeFirst()
+        if (declaration is KtClassOrObject) pending.addAll(declaration.declarations)
+        when (declaration) {
+            is KtClassOrObject -> declaration.getClassId()?.let { classes += it to declaration }
+            is KtTypeAlias -> declaration.getClassId()?.let { typeAliases += it to declaration }
+            is KtNamedFunction -> if (declaration.isTopLevel) declaration.nameAsName?.let { functions += it to declaration }
+            is KtProperty -> if (declaration.isTopLevel) declaration.nameAsName?.let { properties += it to declaration }
+        }
+        if (declaration is KtClassLikeDeclaration && declaration.isTopLevelKtOrJavaMember()) declaration.nameAsName?.let(classLikeNames::add)
+        if (declaration is KtCallableDeclaration && declaration.isTopLevelKtOrJavaMember()) declaration.nameAsName?.let(callableNames::add)
+    }
+    return FileDeclarations(stamp, classes, typeAliases, functions, properties, classLikeNames, callableNames)
+        .also { file.putUserData(FILE_DECLARATIONS, it) }
 }

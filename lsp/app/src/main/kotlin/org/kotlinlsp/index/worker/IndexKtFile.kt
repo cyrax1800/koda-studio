@@ -1,5 +1,6 @@
 /*
  * Copyright 2026  Kumarapu Hemram
+ * Modified 2026 by Koda Studio contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,8 +13,6 @@ package org.kotlinlsp.index.worker
 
 import com.intellij.openapi.project.Project
 import com.intellij.psi.util.parentOfType
-import org.jetbrains.kotlin.analysis.api.KaSession
-import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.isAbstract
 import org.jetbrains.kotlin.psi.psiUtil.isExtensionDeclaration
@@ -39,14 +38,14 @@ fun indexKtFile(project: Project, ktFile: KtFile, db: Database) {
         db.declarationsDb.remove(it)
     }
 
-    // Get declarations metadata
+    // Get declarations metadata, from the syntax alone. Resolving types here (to record return types) analysed every
+    // changed file at startup, and the file being edited while the user typed, where it raced with the edits and left
+    // the compiler with a stale view of the file ("Classifier was found in KtFile but was not found in FirFile").
     val declarations = project.read {
         val list = mutableListOf<Declaration>()
         ktFile.accept(object : KtTreeVisitorVoid() {
             override fun visitDeclaration(dcl: KtDeclaration) {
-                val record = analyze(dcl) {
-                    analyzeDeclaration(newFile.path, dcl)
-                } ?: return
+                val record = declarationRecord(newFile.path, dcl) ?: return
                 list.add(record)
                 super.visitDeclaration(dcl)
             }
@@ -62,13 +61,18 @@ fun indexKtFile(project: Project, ktFile: KtFile, db: Database) {
     db.setFile(newFile)
 }
 
-private fun KaSession.analyzeDeclaration(path: String, dcl: KtDeclaration): Declaration? {
+/** The type as written, for completion's labels; an inferred type is left out, except a block body's `Unit`. */
+private fun KtCallableDeclaration.writtenType(): String = typeReference?.text
+    ?: if (this is KtNamedFunction && hasBlockBody()) "Unit" else ""
+
+private fun declarationRecord(path: String, dcl: KtDeclaration): Declaration? {
     val name = dcl.name ?: return null
     val startOffset = dcl.textOffset
     val endOffset = dcl.textOffset + name.length
 
     return when (dcl) {
         is KtNamedFunction -> {
+            if (dcl.isLocal) return null
             val parentFqName = if (dcl.parent is KtClassBody) {
                 (dcl.parent.parent as? KtClassOrObject)?.fqName?.asString() ?: ""
             } else ""
@@ -85,12 +89,13 @@ private fun KaSession.analyzeDeclaration(path: String, dcl: KtDeclaration): Decl
                 dcl.valueParameters.map {
                     Declaration.Function.Parameter(
                         it.nameAsSafeName.asString(),
-                        it.returnType.toString()
+                        it.writtenType(),
+                        it.hasDefaultValue() || it.isVarArg,
                     )
                 },
-                dcl.returnType.toString(),
+                dcl.writtenType(),
                 parentFqName,
-                dcl.receiverTypeReference?.type?.toString() ?: ""
+                dcl.receiverTypeReference?.getShortTypeText() ?: ""
             )
         }
 
@@ -143,8 +148,8 @@ private fun KaSession.analyzeDeclaration(path: String, dcl: KtDeclaration): Decl
                 path,
                 startOffset,
                 endOffset,
-                dcl.returnType.toString(),
-                clazz.fqName?.asString() ?: ""
+                dcl.writtenType(),
+                clazz.fqName?.asString() ?: "",
             )
         }
 
@@ -158,8 +163,10 @@ private fun KaSession.analyzeDeclaration(path: String, dcl: KtDeclaration): Decl
                 path,
                 startOffset,
                 endOffset,
-                dcl.returnType.toString(),
-                ""
+                dcl.writtenType(),
+                "",
+                receiverFqName = dcl.receiverTypeReference?.getShortTypeText() ?: "",
+                isPrivate = dcl.isPrivate(),
             )
 
             Declaration.Field(
@@ -170,8 +177,10 @@ private fun KaSession.analyzeDeclaration(path: String, dcl: KtDeclaration): Decl
                 path,
                 startOffset,
                 endOffset,
-                dcl.returnType.toString(),
-                clazz.fqName?.asString() ?: ""
+                dcl.writtenType(),
+                clazz.fqName?.asString() ?: "",
+                receiverFqName = dcl.receiverTypeReference?.getShortTypeText() ?: "",
+                isPrivate = dcl.isPrivate() || dcl.isProtected(),
             )
         }
 

@@ -24,6 +24,9 @@ import org.kotlinlsp.actions.codeaction.CodeActionFactory
 import org.kotlinlsp.index.db.Declaration
 import org.kotlinlsp.index.queries.getCompletions
 import org.kotlinlsp.index.Index
+import org.kotlinlsp.actions.autocomplete.ImportInserter
+import org.kotlinlsp.actions.autocomplete.importPreference
+import org.kotlinlsp.actions.autocomplete.isJdkInternal
 import org.kotlinlsp.common.toOffset
 
 class AddImportFactory : CodeActionFactory() {
@@ -39,75 +42,43 @@ class AddImportFactory : CodeActionFactory() {
 
             val candidates = findImportCandidates(context.index, unresolvedSymbolName)
 
-            for (fqn in candidates) {
-                val importText = "import $fqn\n"
-                val insertOffset = findImportInsertionPoint(context.ktFile)
-                val textEdit = TextEdit(
-                    org.eclipse.lsp4j.Range(
-                        context.ktFile.viewProvider.document!!.let {
-                            val line = it.getLineNumber(insertOffset)
-                            org.eclipse.lsp4j.Position(line, 0)
-                        },
-                        context.ktFile.viewProvider.document!!.let {
-                            val line = it.getLineNumber(insertOffset)
-                            org.eclipse.lsp4j.Position(line, 0)
-                        }
-                    ),
-                    importText
-                )
-                val workspaceEdit = WorkspaceEdit(mapOf(context.uri to listOf(textEdit)))
-
-                val action = CodeAction().apply {
+            val imports = ImportInserter(context.ktFile)
+            candidates.forEachIndexed { i, fqn ->
+                val textEdit = imports.editFor(fqn) ?: return@forEachIndexed
+                codeActions.add(CodeAction().apply {
                     title = "Import '$fqn'"
                     kind = CodeActionKind.QuickFix
-                    edit = workspaceEdit
-                    isPreferred = fqn.startsWith("kotlin.")
+                    edit = WorkspaceEdit(mapOf(context.uri to listOf(textEdit)))
+                    // The first, preferred by where it comes from (`android.util.Log`), is the one Quick Fix applies.
+                    isPreferred = i == 0
                     diagnostics = listOf(diagnostic)
-                }
-                codeActions.add(action)
+                })
             }
         }
 
         return codeActions.distinctBy { it.title }
     }
 
-    private fun findImportCandidates(index: Index, symbolName: String): List<String> {
-        val declarations = index.getCompletions(symbolName)
+    /** Importable classes and top-level functions of that name: not private, internal to a library, or JDK internals. */
+    private fun findImportCandidates(index: Index, symbolName: String): List<String> =
+        index.getCompletions(symbolName)
             .filter { it.name == symbolName }
-            .toList()
-
-        val fqns = declarations.mapNotNull {
-            when (it) {
-                is Declaration.Function -> it.fqName
-                is Declaration.Class -> it.fqName
-                else -> null
+            .take(200)
+            .mapNotNull {
+                when (it) {
+                    is Declaration.Function -> it.fqName.takeIf { _ -> it.isTopLevel && !it.isPrivate }
+                    is Declaration.Class -> it.fqName.takeIf { _ -> it.isTopLevel && !it.isPrivate }
+                    else -> null
+                }
             }
-        }
-
-        return fqns.distinct()
-    }
+            .filterNot(::isJdkInternal)
+            .distinct()
+            .sortedWith(compareBy({ importPreference(it) }, { it.length }, { it }))
+            .toList()
 
     private fun getUnresolvedSymbolName(ktFile: KtFile, offset: Int): String? {
         val element = ktFile.findElementAt(offset)
         return element?.parentOfType<KtReferenceExpression>(withSelf = true)?.text
-    }
-
-    /**
-     * Finds where to best insert import statements
-     */
-    private fun findImportInsertionPoint(ktFile: KtFile): Int {
-        val importList = ktFile.importList
-        if (importList != null) {
-            return importList.textRange.endOffset
-        }
-
-        // if no import list, then find package directive
-        val packageDirective = ktFile.packageDirective
-        if (packageDirective != null) {
-            return packageDirective.textRange.endOffset
-        }
-
-        return 0
     }
 
     private fun unresolvedReferenceDiagnostics(context: CodeActionContext): List<Diagnostic> {

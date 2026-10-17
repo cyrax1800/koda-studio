@@ -30,11 +30,12 @@ class DocFormatter {
         )
     }
 
-    private val cache = mutableMapOf<String, String>()
+    /** Hover runs on several threads at once, which a plain map doesn't survive. */
+    private val cache = com.github.benmanes.caffeine.cache.Caffeine.newBuilder().maximumSize(1000).build<String, String>()
 
     fun formatDoc(doc: String): String {
         // Quick cache check
-        cache[doc]?.let { return it }
+        cache.getIfPresent(doc)?.let { return it }
 
         val cleaned = doc.removePrefix("/**").removeSuffix("*/")
 
@@ -76,9 +77,7 @@ class DocFormatter {
             }}
             .let { P_TAG_REGEX.replace(it, "") }
 
-        if (cache.size < 1000) {
-            cache[doc] = formatted
-        }
+        cache.put(doc, formatted)
 
         return formatted
     }

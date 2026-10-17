@@ -1,6 +1,8 @@
 /*
  * Copyright 2026  Kumarapu Hemram
  *
+ * Modified 2026 by Koda Studio contributors.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -10,6 +12,7 @@
 
 package org.kotlinlsp.index.worker
 
+import org.kotlinlsp.common.ServerStatus
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiManager
 import org.jetbrains.kotlin.psi.KtFile
@@ -94,6 +97,7 @@ class WorkerThread(
                     }
                 }
                 is Command.IndexFile -> {
+                    ServerStatus.fileQueued()
                     // Submit to thread pool for parallel processing
                     indexThreadPool.submit {
                         try {
@@ -112,11 +116,14 @@ class WorkerThread(
                             } else {
                                 // .class file - parallel processing
                                 indexClassFile(project, command.virtualFile, db)
+                                ServerStatus.libraryFileIndexed()
                                 indexCount.incrementAndGet()
                             }
                         } catch (e: Exception) {
                             error("Failed to index file ${command.virtualFile.url}: ${e.message}")
                             error(e.stackTraceToString())
+                        } finally {
+                            ServerStatus.fileIndexed()
                         }
                     }
                 }
@@ -125,15 +132,19 @@ class WorkerThread(
                     indexKtFile(project, command.ktFile, db)
                 }
                 is Command.IndexingFinished -> {
-                    // Wait for all indexing tasks to complete before reporting
+                    // Wait for all indexing tasks to complete before reporting. A fixed 60 s limit used to report a large
+                    // project's index as finished while jars were still being read.
                     indexThreadPool.shutdown()
-                    try {
-                        indexThreadPool.awaitTermination(60, TimeUnit.SECONDS)
+                    val finished = try {
+                        indexThreadPool.awaitTermination(1, TimeUnit.HOURS)
                     } catch (e: InterruptedException) {
                         indexThreadPool.shutdownNow()
+                        false
                     }
-                    
+
                     info("Background indexing finished!, ${indexCount.get()} files!")
+                    if (finished) command.onComplete()
+                    ServerStatus.setPhase(ServerStatus.Phase.READY)
                     notifier.onBackgroundIndexFinished()
                 }
                 is Command.SourceIndexingFinished -> {

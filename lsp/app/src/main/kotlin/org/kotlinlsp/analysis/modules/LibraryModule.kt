@@ -1,5 +1,6 @@
 /*
  * Copyright 2026  Kumarapu Hemram
+ * Modified 2026 by Koda Studio contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +33,6 @@ import org.jetbrains.kotlin.cli.common.localfs.KotlinLocalVirtualFile
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreApplicationEnvironment
 import org.jetbrains.kotlin.cli.jvm.modules.CoreJrtFileSystem
 import org.jetbrains.kotlin.config.JvmTarget
-import org.jetbrains.kotlin.library.KLIB_FILE_EXTENSION
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.kotlinlsp.common.read
@@ -164,7 +164,7 @@ private fun getVirtualFileForLibraryRoot(
     var pathString = root.absolutePathString()
 
     // .jar, .zip or .klib files
-    if (pathString.endsWith(JAR_PROTOCOL) || pathString.endsWith(KLIB_FILE_EXTENSION) || pathString.endsWith(".zip") || pathString.endsWith("zip")) {
+    if (pathString.endsWith(JAR_PROTOCOL) || pathString.endsWith("klib") || pathString.endsWith(".zip") || pathString.endsWith("zip")) {
         // Skip non-existent archives (e.g., AGP intermediates like R.jar not generated yet)
         if (!Files.exists(root)) return null
         // Normalize path separators for JarFileSystem

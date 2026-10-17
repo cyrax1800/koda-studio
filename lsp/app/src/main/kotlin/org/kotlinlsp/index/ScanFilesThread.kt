@@ -1,6 +1,8 @@
 /*
  * Copyright 2026  Kumarapu Hemram
  *
+ * Modified 2026 by Koda Studio contributors.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -51,6 +53,9 @@ class ScanFilesThread(
     private val indexedJdkBinaryArtifacts = AtomicInteger(0)
     private val indexedJdkSourceArtifacts = AtomicInteger(0)
     private val indexedSourceArtifacts = AtomicInteger(0)
+
+    /** Changed artifacts, marked indexed after the worker has indexed all their files. */
+    private val pendingArtifacts = java.util.concurrent.ConcurrentLinkedQueue<Pair<Path, String>>()
 
     private fun shouldSkipArtifact(path: Path, kind: String): Boolean {
         val current = Artifact.fromPath(path, kind, indexed = true) ?: return false
@@ -170,9 +175,7 @@ class ScanFilesThread(
 
                         val files = module.computeSources()
 
-                        // TODO: For perfect crash-safety, mark artifacts indexed after worker completion.
-                        // Current PR marks after scan/submission to keep the change surgical.
-                        changedRoots.forEach { markArtifactIndexed(it, ARTIFACT_KIND_JDK_SOURCE) }
+                        changedRoots.forEach { pendingArtifacts += it to ARTIFACT_KIND_JDK_SOURCE }
 
                         files
                     }
@@ -197,9 +200,7 @@ class ScanFilesThread(
 
                         val files = module.computeSources()
 
-                        // TODO: For perfect crash-safety, mark artifacts indexed after worker completion.
-                        // Current PR marks after scan/submission to keep the change surgical.
-                        changedRoots.forEach { markArtifactIndexed(it, ARTIFACT_KIND_SOURCE) }
+                        changedRoots.forEach { pendingArtifacts += it to ARTIFACT_KIND_SOURCE }
 
                         files
                     }
@@ -252,9 +253,7 @@ class ScanFilesThread(
 
                         val files = module.computeFiles(extended = true)
 
-                        // TODO: For perfect crash-safety, mark artifacts indexed after worker completion.
-                        // Current PR marks after scan/submission to keep the change surgical.
-                        changedRoots.forEach { markArtifactIndexed(it, ARTIFACT_KIND_JDK_BINARY) }
+                        changedRoots.forEach { pendingArtifacts += it to ARTIFACT_KIND_JDK_BINARY }
 
                         files
                     }
@@ -277,9 +276,7 @@ class ScanFilesThread(
 
                         val files = module.computeFiles(extended = true)
 
-                        // TODO: For perfect crash-safety, mark artifacts indexed after worker completion.
-                        // Current PR marks after scan/submission to keep the change surgical.
-                        changedRoots.forEach { markArtifactIndexed(it, ARTIFACT_KIND_BINARY) }
+                        changedRoots.forEach { pendingArtifacts += it to ARTIFACT_KIND_BINARY }
 
                         files
                     }
@@ -324,7 +321,11 @@ class ScanFilesThread(
                 }
                 .collect()
 
-            worker.submitCommand(Command.IndexingFinished)
+            // Jars and source roots count as indexed only once all their files are: an artifact marked earlier stayed
+            // incomplete for good when the server stopped mid-way (e.g. VS Code closed during the first indexing).
+            worker.submitCommand(Command.IndexingFinished {
+                if (!shouldStop.get()) pendingArtifacts.forEach { (path, kind) -> markArtifactIndexed(path, kind) }
+            })
         }
     }
 

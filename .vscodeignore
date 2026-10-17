@@ -1,6 +1,12 @@
 **
 !package.json
 !README.md
+!THIRD_PARTY_NOTICES.md
+!language-configuration.json
+!syntaxes/kotlin.tmLanguage.json
 !dist/extension.cjs
-!server/android-bridge-sync.jar
-!gradle/android-bridge.init.gradle
+!server/koda-sync.jar
+!server/kotlin-lsp/**
+!gradle/koda.init.gradle
+!media/icon.png
+.e2e-results/**

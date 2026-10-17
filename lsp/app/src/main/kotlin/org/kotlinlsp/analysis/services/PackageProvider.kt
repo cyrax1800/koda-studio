@@ -39,11 +39,11 @@ private class PackageProvider(
     searchScope: GlobalSearchScope,
     private val index: Index
 ): KotlinPackageProviderBase(project, searchScope) {
-    override fun doesKotlinOnlyPackageExist(packageFqName: FqName): Boolean = profile("doesKotlinOnlyPackageExist", "$packageFqName") {
+    override fun doesKotlinOnlyPackageExist(packageFqName: FqName): Boolean = profile("doesKotlinOnlyPackageExist") {
         packageFqName.isRoot || index.packageExistsInSourceFiles(packageFqName)
     }
 
-    override fun getKotlinOnlySubpackageNames(packageFqName: FqName): Set<Name> = profile("getKotlinOnlySubpackageNames", "$packageFqName") {
+    override fun getKotlinOnlySubpackageNames(packageFqName: FqName): Set<Name> = profile("getKotlinOnlySubpackageNames") {
         index.subpackageNames(packageFqName.asString()).map { Name.identifier(it) }.toSet()
     }
 }

@@ -25,8 +25,8 @@ tasks.test { useJUnitPlatform() }
 
 // A single runnable jar. Packages are not relocated: the Tooling API matches model and parameter types by class name.
 tasks.jar {
-  archiveFileName.set("android-bridge-sync.jar")
-  manifest { attributes("Main-Class" to "androidbridge.sync.MainKt") }
+  archiveFileName.set("koda-sync.jar")
+  manifest { attributes("Main-Class" to "koda.sync.MainKt") }
   dependsOn(configurations.runtimeClasspath)
   from(configurations.runtimeClasspath.map { files -> files.map { if (it.isDirectory) it else zipTree(it) } })
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE

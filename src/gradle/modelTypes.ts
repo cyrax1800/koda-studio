@@ -1,5 +1,5 @@
-// Shape of model.json written by android-bridge-sync (sidecar/src/main/kotlin/androidbridge/sync/SyncAction.kt)
-// and the init script (gradle/android-bridge.init.gradle).
+// Shape of model.json written by koda-sync (sidecar/src/main/kotlin/koda/sync/SyncAction.kt)
+// and the init script (gradle/koda.init.gradle).
 
 export interface ProjectModel {
   schemaVersion: 1;

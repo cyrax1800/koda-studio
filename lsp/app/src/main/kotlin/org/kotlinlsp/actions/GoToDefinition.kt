@@ -1,5 +1,6 @@
 /*
  * Copyright 2026  Kumarapu Hemram
+ * Modified 2026 by Koda Studio contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +14,20 @@ package org.kotlinlsp.actions
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiJavaFile
+import com.intellij.psi.PsiClass
+import com.intellij.psi.PsiMember
+import com.intellij.psi.PsiMethod
+import com.intellij.psi.PsiNamedElement
+import com.intellij.psi.impl.compiled.ClsFileImpl
+import com.intellij.openapi.vfs.VirtualFile
+import org.jetbrains.java.decompiler.main.Fernflower
+import org.jetbrains.java.decompiler.main.extern.IFernflowerLogger
+import org.jetbrains.java.decompiler.main.extern.IFernflowerPreferences
+import org.jetbrains.java.decompiler.main.extern.IResultSaver
+import org.kotlinlsp.analysis.services.LibraryParameterNames
+import com.intellij.psi.ClassFileViewProvider
+import com.intellij.psi.FileViewProvider
+import org.eclipse.lsp4j.Range
 import com.intellij.psi.ResolveResult
 import org.eclipse.lsp4j.Location
 import org.eclipse.lsp4j.Position
@@ -61,12 +76,17 @@ fun goToDefinitionAction(ktFile: KtFile, position: Position, index: Index): List
     
     for (element in elements) {
         val file = element?.containingFile ?: continue
-            val range = element.textRange.toLspRange(file)
-
-            locations.add(Location().apply {
-                uri = file.virtualFile.url.normalizeUri()
-                setRange(range)
-            })
+        // A compiled Java class without sources (no `-sources.jar` in the Gradle cache) has no text to point into:
+        // asking for its range threw. It is decompiled instead, as Android Studio does.
+        if (file.virtualFile?.extension == "class") {
+            libraryLocation(element, index)?.let(locations::add)
+            continue
+        }
+        val range = runCatching { element.textRange.toLspRange(file) }.getOrNull() ?: continue
+        locations.add(Location().apply {
+            uri = file.virtualFile.url.normalizeUri()
+            setRange(range)
+        })
     }
     
     return locations
@@ -85,7 +105,141 @@ private fun KaSession.getFromSourcesJar(ktFile: KtFile, ref: KtReference, index:
     })
 }
 
-private fun cacheSourcesJarFile(referenceFile: PsiFile, index: Index): File {
+/** [element] in the class file decompiled to Java, written next to the cached sources (`<index>/decompiled/…`). */
+/**
+ * Where a declaration from a library class file is, as a file the editor can open (written under `<index>/decompiled/`):
+ * the class's source from its library's sources jar (`.java` or `.kt`), else the Android SDK's sources for android.jar,
+ * else the class decompiled with method bodies, else its signatures. Null for elements that aren't in a class file.
+ */
+fun libraryLocation(element: PsiElement, index: Index): Location? {
+    val classFile = element.containingFile?.virtualFile?.takeIf { it.extension == "class" } ?: return null
+    val (fileName, text) = LibraryParameterNames.sourceTextFor(classFile)
+        ?: LibraryParameterNames.sdkSourceFile(classFile)?.let { it.name to it.readText() }
+        ?: (runCatching { decompileWithBodies(classFile) ?: (element.containingFile as? ClsFileImpl)?.let(::decompile) }
+            .onFailure { org.kotlinlsp.common.warn("Decompiling ${classFile.url} failed: $it") }
+            .getOrNull()?.let { classFile.nameWithoutExtension.substringBefore('$') + ".decompiled.java" to it })
+        ?: return null
+
+    val packagePath = classFile.path.substringAfter("!/").substringBeforeLast('/', "")
+    val dir = getCachePath(index.rootFolder).resolve("decompiled").let { if (packagePath.isEmpty()) it else it.resolve(packagePath) }
+    Files.createDirectories(dir)
+    val target = dir.resolve(fileName).toFile()
+    if (!target.exists() || target.readText() != text) target.writeText(text)
+
+    val offset = declarationOffset(text, element)
+    val line = text.substring(0, offset).count { it == '\n' }
+    val column = offset - (text.lastIndexOf('\n', offset - 1) + 1)
+    return Location().apply {
+        uri = target.toURI().toString().normalizeUri()
+        range = Range(Position(line, column), Position(line, column))
+    }
+}
+
+/** Where [element] is declared in [text] (Java or Kotlin source): its classes, outermost first, then the member. */
+private fun declarationOffset(text: String, element: PsiElement): Int {
+    val name = (element as? PsiNamedElement)?.name
+    val classes = generateSequence(element as? PsiClass ?: (element as? PsiMember)?.containingClass) { it.containingClass }
+        .toList().reversed()
+    val classStart = classes.fold(0) { from, cls ->
+        val declaration = Regex("\\b(class|interface|enum|record|@interface|object)\\s+${Regex.escape(cls.name ?: "")}\\b")
+        declaration.find(text, from)?.range?.first ?: from
+    }
+    if (name == null || element is PsiClass) return classStart
+    val n = Regex.escape(name)
+    // A Kotlin property's getter (`getStart` for `val Start`, `isEnabled` for `val isEnabled`) points at the property.
+    val property = (element as? PsiMethod)?.let { Regex("^(?:get|is)([A-Z]\\w*)$").find(name)?.groupValues?.get(1) }
+        ?.let { listOf(it, it.replaceFirstChar(Char::lowercase), name) }
+    val declarations = when (element) {
+        // Kotlin `fun name(` / `fun <T> name(`, Java `Type name(` (not a call `name(`).
+        is PsiMethod -> listOf(Regex("\\bfun\\s+(?:<[^>]*>\\s*)?(?:[\\w.]+\\.)?$n\\s*\\("), Regex("[\\w>\\]?]\\s+$n\\s*\\(")) +
+            property.orEmpty().map { Regex("\\b(?:val|var)\\s+(?:[\\w.]+\\.)?${Regex.escape(it)}\\b") }
+        else -> listOf(Regex("\\b(?:val|var)\\s+$n\\b"), Regex("[\\w>\\]?]\\s+$n\\s*[=;]"))
+    }
+    return declarations.firstNotNullOfOrNull { it.find(text, classStart)?.range }?.let { range ->
+        val matched = text.substring(range.first, range.last + 1)
+        range.first + (listOf(name) + property.orEmpty()).map { matched.lastIndexOf(it) }.firstOrNull { it >= 0 }.let { it ?: 0 }
+    } ?: Regex("\\b$n\\b").find(text, classStart)?.range?.first ?: classStart
+}
+
+/**
+ * The class (with its nested classes) decompiled to Java with method bodies by Vineflower, the maintained fork of
+ * IntelliJ's Fernflower decompiler. Null when it fails; the signatures-only view is used then.
+ */
+private fun decompileWithBodies(classFile: VirtualFile): String? {
+    val jarPath = classFile.path.substringBefore("!/", "").takeIf { it.isNotEmpty() } ?: return null
+    val entry = classFile.path.substringAfter("!/")
+    val outer = entry.removeSuffix(".class").substringBefore('$')
+    val work = Files.createTempDirectory("koda-decompile")
+    try {
+        val inputs = mutableListOf<File>()
+        java.util.zip.ZipFile(jarPath).use { zip ->
+            for (zipEntry in zip.entries()) {
+                val name = zipEntry.name
+                if (name == "$outer.class" || (name.startsWith("$outer$") && name.endsWith(".class"))) {
+                    val out = work.resolve(name).toFile()
+                    out.parentFile.mkdirs()
+                    zip.getInputStream(zipEntry).use { input -> out.outputStream().use { input.copyTo(it) } }
+                    inputs += out
+                }
+            }
+        }
+        if (inputs.isEmpty()) return null
+        var result: String? = null
+        val saver = object : IResultSaver {
+            override fun saveFolder(path: String) {}
+            override fun copyFile(source: String, path: String, entryName: String) {}
+            override fun saveClassFile(path: String, qualifiedName: String, entryName: String, content: String?, mapping: IntArray?) {
+                if (qualifiedName == outer && content != null) result = content
+            }
+            override fun createArchive(path: String, archiveName: String, manifest: java.util.jar.Manifest?) {}
+            override fun saveDirEntry(path: String, archiveName: String, entryName: String) {}
+            override fun copyEntry(source: String, path: String, archiveName: String, entry: String) {}
+            override fun saveClassEntry(path: String, archiveName: String, qualifiedName: String, entryName: String, content: String?) {}
+            override fun closeArchive(path: String, archiveName: String) {}
+        }
+        val logger = object : IFernflowerLogger() {
+            override fun writeMessage(message: String, severity: Severity) {}
+            override fun writeMessage(message: String, severity: Severity, t: Throwable) {}
+        }
+        val options = mapOf<String, Any>(
+            IFernflowerPreferences.INDENT_STRING to "    ",
+            IFernflowerPreferences.REMOVE_SYNTHETIC to "1",
+            IFernflowerPreferences.DECOMPILE_GENERIC_SIGNATURES to "1",
+        )
+        val fernflower = Fernflower(saver, options, logger)
+        inputs.forEach(fernflower::addSource)
+        // The rest of the jar for naming types and resolving calls.
+        fernflower.addLibrary(File(jarPath))
+        try {
+            fernflower.decompileContext()
+        } finally {
+            fernflower.clearContext()
+        }
+        return result
+    } catch (t: Throwable) {
+        org.kotlinlsp.common.warn("Decompiling ${classFile.url} failed: $t")
+        return null
+    } finally {
+        work.toFile().deleteRecursively()
+    }
+}
+
+/**
+ * The class file as Java source, as IntelliJ shows it without sources. `ClsFileImpl.decompile` does this through the
+ * application's default project, which this server doesn't have; the same steps run here with the file's project.
+ */
+private fun decompile(file: ClsFileImpl): String {
+    val constructor = ClsFileImpl::class.java.getDeclaredConstructor(FileViewProvider::class.java, Boolean::class.javaPrimitiveType)
+    constructor.isAccessible = true
+    val decompiling = constructor.newInstance(ClassFileViewProvider(file.manager, file.virtualFile), true)
+    val append = ClsFileImpl::class.java.getDeclaredMethod("appendMirrorText", StringBuilder::class.java)
+    append.isAccessible = true
+    val text = StringBuilder()
+    append.invoke(decompiling, text)
+    return text.toString()
+}
+
+internal fun cacheSourcesJarFile(referenceFile: PsiFile, index: Index): File {
     val packagePath = sourcePackagePath(referenceFile)
     val cacheDir = getCachePath(index.rootFolder)
         .resolve("decompiled")

@@ -1,5 +1,6 @@
 /*
  * Copyright 2026  Kumarapu Hemram
+ * Modified 2026 by Koda Studio contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +34,7 @@ import org.jetbrains.kotlin.analysis.api.platform.declarations.KotlinDirectInher
 import org.jetbrains.kotlin.analysis.api.platform.java.KotlinJavaModuleAccessibilityChecker
 import org.jetbrains.kotlin.analysis.api.platform.java.KotlinJavaModuleAnnotationsProvider
 import org.jetbrains.kotlin.analysis.api.platform.lifetime.KotlinLifetimeTokenFactory
-import org.jetbrains.kotlin.analysis.api.platform.lifetime.KotlinReadActionConfinementLifetimeTokenFactory
+import org.jetbrains.kotlin.analysis.api.platform.projectStructure.KotlinCompilerPluginsProvider
 import org.jetbrains.kotlin.analysis.api.platform.modification.KotlinModificationTrackerFactory
 import org.jetbrains.kotlin.analysis.api.platform.packages.KotlinPackagePartProviderFactory
 import org.jetbrains.kotlin.analysis.api.platform.packages.KotlinPackageProviderFactory
@@ -70,7 +71,6 @@ fun Registrar.lspPlatform() {
     )
 
     // These are our platform services
-    KotlinCoreEnvironment.registerProjectExtensionPoints(project.extensionArea)
     appExtensionPoint(
         AdditionalKDocResolutionProvider.EP_NAME.toString(),
         AdditionalKDocResolutionProvider::class.java
@@ -98,9 +98,10 @@ fun Registrar.lspPlatform() {
         registerService(InferredAnnotationsManager::class.java, MockInferredAnnotationsManager())
         registerService(
             KotlinLifetimeTokenFactory::class.java,
-            KotlinReadActionConfinementLifetimeTokenFactory::class.java
+            LspLifetimeTokenFactory::class.java
         )
         registerService(KotlinPlatformSettings::class.java, PlatformSettings::class.java)
+        registerService(KotlinCompilerPluginsProvider::class.java, CompilerPluginsProvider::class.java)
         registerService(SmartTypePointerManager::class.java, SmartTypePointerManagerImpl::class.java)
         registerService(SmartPointerManager::class.java, SmartPointerManagerImpl::class.java)
         registerService(KotlinProjectStructureProvider::class.java, ProjectStructureProvider::class.java)
@@ -115,12 +116,10 @@ fun Registrar.lspPlatform() {
         registerService(KotlinPackageProviderFactory::class.java, PackageProviderFactory::class.java)
         registerService(KotlinPackageProviderMerger::class.java, PackageProviderMerger::class.java)
         registerService(KotlinPackagePartProviderFactory::class.java, PackagePartProviderFactory::class.java)
+        // Java lookups of Kotlin library classes build light classes from their Java stubs; not in the plugin descriptors.
+        registerService(org.jetbrains.kotlin.analysis.decompiled.light.classes.ClsJavaStubByVirtualFileCache::class.java)
         registerService(KotlinStubBuilder::class.java, KotlinStubBuilder(project))
         registerService(JavaStubBuilder::class.java, JavaStubBuilder(project))
-    }
-    with(PsiElementFinder.EP.getPoint(project)) {
-        registerExtension(JavaElementFinder(project), disposable)
-        registerExtension(PsiElementFinderImpl(project), disposable)
     }
     with(app) {
         registerService(FileAttributeService::class.java, DummyFileAttributeService::class.java)

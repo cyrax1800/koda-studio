@@ -14,17 +14,17 @@ describe('syncArguments', () => {
     const args = syncArguments({
       extensionPath: '/ext',
       projectDir: '/work/app',
-      outFile: '/work/app/.gradle/android-bridge/model.json',
+      outFile: '/work/app/.gradle/koda/model.json',
       variant: 'prodDebug',
       generate: 'light',
       gradleArguments: ['-Pfoo=bar', '--offline'],
       java,
     });
     expect(args).toEqual([
-      '-jar', path.join('/ext', 'server', 'android-bridge-sync.jar'),
+      '-jar', path.join('/ext', 'server', 'koda-sync.jar'),
       '--project-dir', '/work/app',
-      '--init-script', path.join('/ext', 'gradle', 'android-bridge.init.gradle'),
-      '--out', '/work/app/.gradle/android-bridge/model.json',
+      '--init-script', path.join('/ext', 'gradle', 'koda.init.gradle'),
+      '--out', '/work/app/.gradle/koda/model.json',
       '--generate', 'light',
       '--variant', 'prodDebug',
       '--gradle-arg', '-Pfoo=bar',

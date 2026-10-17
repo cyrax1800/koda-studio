@@ -1,6 +1,8 @@
 /*
  * Copyright 2026  Kumarapu Hemram
  *
+ * Modified 2026 by Koda Studio contributors.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -41,6 +43,8 @@ sealed class Declaration() {
         data class Parameter(
             val name: String,
             val type: String,
+            /** Optional arguments are left out of the completion snippet. */
+            val hasDefault: Boolean = false,
         )
     }
 
@@ -89,6 +93,9 @@ sealed class Declaration() {
         override val endOffset: Int,
         val type: String,
         val parentFqName: String,
+        /** An extension property's receiver as short type text, e.g. "LifecycleOwner"; empty otherwise. */
+        val receiverFqName: String = "",
+        val isPrivate: Boolean = false,
     ) : Declaration()
 
     // @Serializable
@@ -120,7 +127,15 @@ sealed class Declaration() {
     // ) : Declaration()
 }
 
-fun Declaration.id() = "${name}:${file}:${startOffset}:${endOffset}"
+/**
+ * The storage key. Declarations read from class files all sit at offset 0 of their file, so a function's parameter
+ * names are part of the key; without them the overloads in one class (`LaunchedEffect(key1)`, `LaunchedEffect(key1,
+ * key2)`, … in `EffectsKt`) overwrote each other and only one was found.
+ */
+fun Declaration.id(): String {
+    val overload = (this as? Declaration.Function)?.parameters?.joinToString(",", "(", ")") { it.name } ?: ""
+    return "${name}${overload}:${file}:${startOffset}:${endOffset}"
+}
 
 fun Database.putDeclarations(declarations: Iterable<Declaration>) {
     declarationsDb.put(declarations.map { Pair(it.id(), it) })

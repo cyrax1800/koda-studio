@@ -1,5 +1,6 @@
 /*
  * Copyright 2026  Kumarapu Hemram
+ * Modified 2026 by Koda Studio contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +17,7 @@ import org.kotlinlsp.common.warn
 import org.kotlinlsp.index.db.adapters.DatabaseAdapter
 import org.kotlinlsp.index.db.adapters.RocksDBAdapter
 import org.kotlinlsp.index.db.adapters.get
+import org.kotlinlsp.index.db.adapters.prefixSearch
 import org.kotlinlsp.index.db.adapters.put
 import org.rocksdb.RocksDBException
 import java.io.File
@@ -23,7 +25,7 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.io.path.absolutePathString
 import kotlin.concurrent.withLock
 
-const val CURRENT_SCHEMA_VERSION = 5    // Increment on schema changes
+const val CURRENT_SCHEMA_VERSION = 11    // 7: index built with Analysis API 2.4.20; 8: parameter defaults; 9: property receivers; 10: compiled Java classes, library internals hidden; 11: source types as written, no local functions    // Increment on schema changes
 const val VERSION_KEY = "__version"
 
 class Database(rootFolder: String) {
@@ -77,6 +79,53 @@ class Database(rootFolder: String) {
         sourceFilesDb.close()
     }
 
+    /**
+     * [packagesDb] in memory: each source package's files, and every package with its parent packages. Analysis asks
+     * whether a package exists and what it holds hundreds of thousands of times while a project's files are analysed
+     * (find usages over many modules); each answer read RocksDB, together a minute and a half. Writes go through
+     * [setPackageFiles], which keeps it current.
+     */
+    private val packageFiles: java.util.concurrent.ConcurrentHashMap<String, List<String>> by lazy {
+        java.util.concurrent.ConcurrentHashMap<String, List<String>>().also { map ->
+            packagesDb.prefixSearch<List<String>>("").forEach { (key, files) -> map[key] = files }
+        }
+    }
+    @Volatile private var knownPackages: Set<String>? = null
+
+    private fun setPackageFiles(packageFqName: String, files: List<String>) {
+        if (files.isEmpty()) {
+            packagesDb.remove(packageFqName)
+            packageFiles.remove(packageFqName)
+        } else {
+            packagesDb.put(packageFqName, files)
+            packageFiles[packageFqName] = files
+        }
+        knownPackages = null
+    }
+
+    /** The source files of a package (urls). */
+    fun filesOfPackage(packageFqName: String): List<String> = packageFiles[packageFqName].orEmpty()
+
+    /** Whether source files declare [packageFqName] or one of its subpackages. */
+    fun packageExists(packageFqName: String): Boolean = packageFqName in packages()
+
+    /** The next segment of each source package under [packageFqName]. */
+    fun subpackageNames(packageFqName: String): Set<String> {
+        val prefix = if (packageFqName.isEmpty()) "" else "$packageFqName."
+        return packages().asSequence()
+            .filter { it.startsWith(prefix) && it.length > prefix.length }
+            .map { it.substring(prefix.length).substringBefore('.') }
+            .toSet()
+    }
+
+    private fun packages(): Set<String> = knownPackages ?: HashSet<String>().also { all ->
+        for (name in packageFiles.keys) {
+            var current = name
+            while (all.add(current) && current.isNotEmpty()) current = current.substringBeforeLast('.', "")
+        }
+        knownPackages = all
+    }
+
     fun addSourceFile(packageFqName: String, fileUrl: String): Boolean = packageListLock.withLock {
         val existing = sourcesDb.get<List<String>>(packageFqName)?.toMutableList() ?: mutableListOf()
         if (existing.contains(fileUrl)) {
@@ -93,20 +142,11 @@ class Database(rootFolder: String) {
             if (previousPackageFqName == packageFqName) return
 
             if (previousPackageFqName != null) {
-                val previousFiles = packagesDb.get<List<String>>(previousPackageFqName)?.toMutableList() ?: mutableListOf()
-                previousFiles.remove(filePath)
-                if (previousFiles.isEmpty()) {
-                    packagesDb.remove(previousPackageFqName)
-                } else {
-                    packagesDb.put(previousPackageFqName, previousFiles)
-                }
+                setPackageFiles(previousPackageFqName, filesOfPackage(previousPackageFqName) - filePath)
             }
 
-            val files = packagesDb.get<List<String>>(packageFqName)?.toMutableList() ?: mutableListOf()
-            if (!files.contains(filePath)) {
-                files.add(filePath)
-                packagesDb.put(packageFqName, files)
-            }
+            val files = filesOfPackage(packageFqName)
+            if (!files.contains(filePath)) setPackageFiles(packageFqName, files + filePath)
         }
     }
 
@@ -114,13 +154,7 @@ class Database(rootFolder: String) {
         packageListLock.withLock {
             val fileDto = filesDb.get<FileDto>(filePath) ?: return
 
-            val previousFiles = packagesDb.get<List<String>>(fileDto.packageFqName)?.toMutableList() ?: mutableListOf()
-            previousFiles.remove(filePath)
-            if (previousFiles.isEmpty()) {
-                packagesDb.remove(fileDto.packageFqName)
-            } else {
-                packagesDb.put(fileDto.packageFqName, previousFiles)
-            }
+            setPackageFiles(fileDto.packageFqName, filesOfPackage(fileDto.packageFqName) - filePath)
 
             if (fileDto.declarationKeys.isNotEmpty()) {
                 declarationsDb.remove(fileDto.declarationKeys)

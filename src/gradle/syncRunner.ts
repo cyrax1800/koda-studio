@@ -1,4 +1,4 @@
-// Runs android-bridge-sync (sidecar/) and turns its JSON event lines into callbacks.
+// Runs koda-sync (sidecar/) and turns its JSON event lines into callbacks.
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import readline from 'node:readline';
@@ -14,6 +14,8 @@ export interface SyncRequest {
   generate: GenerateSources;
   gradleArguments: string[];
   java: JavaRuntime;
+  /** Stop the Gradle daemon the sync started when it's done, freeing its memory for indexing. */
+  stopDaemon?: boolean;
 }
 
 export interface SyncListener {
@@ -41,17 +43,18 @@ export class SyncCancelled extends Error {
 export function syncArguments(request: SyncRequest): string[] {
   return [
     '-jar',
-    path.join(request.extensionPath, 'server', 'android-bridge-sync.jar'),
+    path.join(request.extensionPath, 'server', 'koda-sync.jar'),
     '--project-dir',
     request.projectDir,
     '--init-script',
-    path.join(request.extensionPath, 'gradle', 'android-bridge.init.gradle'),
+    path.join(request.extensionPath, 'gradle', 'koda.init.gradle'),
     '--out',
     request.outFile,
     '--generate',
     request.generate,
     ...(request.variant ? ['--variant', request.variant] : []),
     ...(request.java.explicit ? ['--java-home', request.java.home] : []),
+    ...(request.stopDaemon ? ['--stop-daemon'] : []),
     ...request.gradleArguments.flatMap((a) => ['--gradle-arg', a]),
   ];
 }
