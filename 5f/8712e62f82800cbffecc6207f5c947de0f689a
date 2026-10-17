@@ -1,0 +1,336 @@
+test/unit/daemons.test.ts
+  s_6be9ac016b0423::t_fef346ffd9ebf8 1-16
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/hover/DocFormatter.kt
+  s_8c2dd9cae84381::t_8a3328bd344b2f 33-34,80
+  s_8c2dd9cae84381::t_f1582a65e503d8 38
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/services/LibraryParameterNames.kt
+  s_8c2dd9cae84381::t_8e80907094294b 56,66,75,105-106,109,129,139,146,148,151,160-194,201,210,217
+  s_8c2dd9cae84381::t_74a08d1ac16d37 1-55,57-65,67-74,76-104,107-108,110-128,130-138,140-145,147,149-150,152-159,195-200,202-209,211-216,218
+.vscodeignore
+  s_6be9ac016b0423::t_69bfc2d5514bdd 4-6,8-12
+tools/lsp-probe.mjs
+  s_6be9ac016b0423::t_22a7cff035ed24 372-373,381,386-387,389-390,392,394-397,399-400,414-416,418,422-426,428,524
+  s_6be9ac016b0423::t_c1346f9f894cd0 281-286
+  s_6be9ac016b0423::t_8db16700afc874 388,393,398,407-408,417
+  s_8c2dd9cae84381::t_67c67e099c18d3 332,364,444,456,469,473-475,477-479,481-490,502,505,517,528,545,562,565,574,576,599
+  s_6be9ac016b0423::t_568ca536a08219 367-371,374-380,382-385,391,401-406,409-413,419-421,427,429-435,548-549,553
+  s_8c2dd9cae84381::t_4b902ac7bd266c 476,480,619,624,641-647,649
+  s_8c2dd9cae84381::t_5ecbf88a55643a 6-7,29,116,174-177,180,245-256,289,297-312,327-331,347-348,357-363,436-443,445-455,457-468,470-472,491-501,503-504,506-516,518-523,525-527,529-544,546-547,550-552,554-561,563-564,566-573,575,592-598,652-653
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/AnalysisSession.kt
+  s_6be9ac016b0423::t_adb9d78e4791c6 161,286,289,314,318,477,484-502,504,550,554
+  s_6be9ac016b0423::t_c588a7094b6731 363-371
+  s_8c2dd9cae84381::t_61b06d8b8e256c 162,177,312,417,532,539,544,555-556,610,616,619-628
+  s_6be9ac016b0423::t_35826501c42e05 387,398,415,467-471,473,476,478-483,547-549,585,588,594,596,599,601,609,612,615,618
+  s_8c2dd9cae84381::t_7060b63ba54c72 458-460
+  s_6be9ac016b0423::t_a8dd5456ff8706 319-362
+  s_6be9ac016b0423::t_bacd1a7caf9008 582
+  s_6be9ac016b0423::t_4e8568ffe36f91 529-531
+  s_6be9ac016b0423::t_4bddb071d96258 92,503
+  s_8c2dd9cae84381::t_d99ea1afb11c56 3,14-39,43-46,67,72,74,81-84,132-133,136-138,152-160,174-176,181-185,199-208,210-212,224,227,259,274-275,283,287-288,290-292,294,303,307-308,313,315-317,376-377,386,416,418,438-447,451-457,463,513-514,528,533-538,540-543,545-546,551-553,557,559,565-568,578,631-634
+lsp/app/src/main/kotlin/org/kotlinlsp/index/Index.kt
+  s_6be9ac016b0423::t_8cbdb5bd323e03 3,14-16,69,74-85,133-160,165-166,169-171,173,176-180
+  s_6be9ac016b0423::t_45541c8d36e7e7 96,161-164
+  s_6be9ac016b0423::t_e9554c17b89293 167-168
+  s_6be9ac016b0423::t_daf0637d6dc621 172
+src/sync/syncService.ts
+  s_6be9ac016b0423::t_11b6dfb93bfb8d 12,30-31,41,127-131,133,194-197,200-208,246,252
+  s_6be9ac016b0423::t_790b781df64cd5 11,24,35,53-63,70-72,111-113,120-122,134,154,161,170,179,209-218,220,225,227-228,232,234
+  s_6be9ac016b0423::t_f9c66367061073 253
+src/gradle/syncRunner.ts
+  s_6be9ac016b0423::t_786898b4442fa7 1,17-18,46,50,57
+lsp/app/src/main/kotlin/org/kotlinlsp/index/db/Database.kt
+  s_6be9ac016b0423::t_390007ca618851 20,82-128,145,148-149,157
+  s_6be9ac016b0423::t_8901358bf87b05 3,28
+lsp/app/src/test/kotlin/org/kotlinlsp/CompilerPlugins.kt
+  s_6be9ac016b0423::t_a8dd5456ff8706 1-90
+lsp/app/src/test/kotlin/org/kotlinlsp/ModuleDependents.kt
+  s_6be9ac016b0423::t_a8dd5456ff8706 1-135
+lsp/app/src/test/kotlin/org/kotlinlsp/RealTimeDiagnostics.kt
+  s_6be9ac016b0423::t_a8dd5456ff8706 20,35,48
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/services/DirectInheritorsProvider.kt
+  s_6be9ac016b0423::t_a2ce3da1e12b69 81,99
+  s_8c2dd9cae84381::t_63f47138a1f23c 52-55,58-60,65-69,102-103,111-116,143-144,147,154,157-159,162-169,171-175
+  s_6be9ac016b0423::t_ea07b438d305ac 3,23,38,45-51,56-57,61-64,85-88,96-98,104-107,109,136-142,145-146,148,150-153,155-156,170,178,183-187
+  s_8c2dd9cae84381::t_e9cb11d6e7ccc0 110,188-189
+lsp/app/src/main/kotlin/org/kotlinlsp/buildsystem/Resolver.kt
+  s_6be9ac016b0423::t_a2ce3da1e12b69 3,21,41-43,48
+lsp/app/src/main/kotlin/org/kotlinlsp/index/queries/FilesForPackage.kt
+  s_6be9ac016b0423::t_390007ca618851 17
+lsp/app/src/test/kotlin/org/kotlinlsp/FriendModules.kt
+  s_6be9ac016b0423::t_a8dd5456ff8706 1-87
+lsp/app/src/main/kotlin/org/kotlinlsp/index/queries/PackageExistsInSourceFiles.kt
+  s_6be9ac016b0423::t_390007ca618851 17
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/services/AnnotationResolver.kt
+  s_6be9ac016b0423::t_a2ce3da1e12b69 55,93
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/services/PackageProvider.kt
+  s_6be9ac016b0423::t_a2ce3da1e12b69 42,46
+test/e2e/suite.cjs
+  s_6be9ac016b0423::t_b1d76edc7ba051 1-2,4-5,12,18,23-35,37-54,57-59,61-69,71-103,105-108,110,124,127,130-159,169-229,231-236,238-240
+  s_6be9ac016b0423::t_c5a4319b9a8bec 160-168
+  s_6be9ac016b0423::t_be7c47057949a6 109,111-123,125-126,128-129
+package.json
+  s_6be9ac016b0423::t_11b6dfb93bfb8d 175-180
+  s_6be9ac016b0423::t_786898b4442fa7 2-4,6-11,37,39,43,45,48,50,53,55-93,96-99,103,105,114,123,130,132,148,181,191,194-239,241-246,251,256,258-288,299-300,302,312-314
+  s_6be9ac016b0423::t_69bfc2d5514bdd 301
+  s_6be9ac016b0423::t_790b781df64cd5 159-174
+  s_8c2dd9cae84381::t_c5392d642eae7b 5
+src/config.ts
+  s_6be9ac016b0423::t_786898b4442fa7 5,11-12,17-26,34-63,74,78-84,88
+  s_6be9ac016b0423::t_11b6dfb93bfb8d 13-14,75
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/services/CompilerPluginsProvider.kt
+  s_6be9ac016b0423::t_d5ab3c3d53bb24 1-165
+src/sync/daemons.ts
+  s_6be9ac016b0423::t_2a934b93787dc6 1-43
+lsp/app/src/test/kotlin/org/kotlinlsp/FilesFromDisk.kt
+  s_6be9ac016b0423::t_a8dd5456ff8706 1-86
+src/server/languageClient.ts
+  s_6be9ac016b0423::t_1cd66074e9b0cc 27-30
+  s_6be9ac016b0423::t_82bd8bad67dfa4 50-252,255,265
+  s_6be9ac016b0423::t_6d22c5e9d9f043 1-3,5,7-9,11,13-26,33-45,47-48,253-254,258-264,266
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/modules/SourceModule.kt
+  s_6be9ac016b0423::t_e9554c17b89293 3,14,41-44,46-47,93,97,111-136
+  s_6be9ac016b0423::t_3b51d35f86d53f 137-138
+lsp/app/src/main/kotlin/org/kotlinlsp/index/worker/IndexKtFile.kt
+  s_6be9ac016b0423::t_302b528e05d855 3,41-43,48,64-68,75,92-93,96,98,151-152,166-169,180-183
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/autocomplete/GenericCompletion.kt
+  s_6be9ac016b0423::t_31f307308dadb7 3,14,27,34-42,44,47,50-67,69,71-81,83,92-129,131,133-134,136-149,151-152,182-191
+  s_6be9ac016b0423::t_364a94ceb74306 18,20-23,25,84-85,87-88,90,153-155,159,161,171-172,178,180
+  s_6be9ac016b0423::t_0c0d9e77805a5c 24,86,156-158,160,162-170,173-177,179,181
+test/e2e/profiles/tiketandroid.cjs
+  s_6be9ac016b0423::t_eef953d0ee22db 1-37
+lsp/app/src/main/kotlin/org/kotlinlsp/index/WordIndex.kt
+  s_6be9ac016b0423::t_4530687d7abc83 1-178
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/services/ProjectStructureProvider.kt
+  s_6be9ac016b0423::t_a2ce3da1e12b69 44,65
+  s_6be9ac016b0423::t_8e6fbd7f005707 59
+  s_6be9ac016b0423::t_95e31b77032714 4-5,48-58,60-63,67-68,73-76
+  s_6be9ac016b0423::t_4b430922173471 64
+lsp/app/src/test/kotlin/org/kotlinlsp/Diagnostics.kt
+  s_6be9ac016b0423::t_a8dd5456ff8706 1-28
+lsp/app/src/main/kotlin/org/kotlinlsp/common/Log.kt
+  s_6be9ac016b0423::t_a2ce3da1e12b69 24,50,53,70-78,80-81,85-86
+  s_6be9ac016b0423::t_0435d78f069707 87-88
+lsp/app/src/main/kotlin/org/kotlinlsp/lsp/Server.kt
+  s_6be9ac016b0423::t_4827833feab97b 72-73,86-94,96-97,99,101,104,106-112,114-115,118-119,207,211,243,318,350,360,366,369
+  s_6be9ac016b0423::t_17ed8751503ff7 225-226
+  s_6be9ac016b0423::t_4e8568ffe36f91 27,40-42,70-71,74,95,98,100,102-103,105,117,244,251,324-326,331-335
+  s_6be9ac016b0423::t_bacd1a7caf9008 43-45,76-84,272,289,306,342,344-347,363
+  s_6be9ac016b0423::t_e72e8d8dc2357e 26,28-30,63-69,75,85,113,116,120,204,236-238,273-278,291,293,299,305,307-308,311-314,317,320,329,336-338,356-357,359,362,365,368
+  s_6be9ac016b0423::t_a8dd5456ff8706 267
+  s_6be9ac016b0423::t_b0fd01dea24d07 3,14,21,34,57,149-150,152-155,159-162,185-187,196-203,208-210,213-216,220-221,223,271,281-284,290,319,321-323,327-328,330,341,349,352-355,361,364,367
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/services/ModuleDependentsProvider.kt
+  s_6be9ac016b0423::t_a2ce3da1e12b69 4-5,20,30-35,37,43,46,51,56,62,65-67,69-71
+.gitignore
+  s_6be9ac016b0423::t_69bfc2d5514bdd 9-10
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/FindReferences.kt
+  s_8c2dd9cae84381::t_2f20cbe1e98e2c 120-123
+  s_8c2dd9cae84381::t_d2a06596ffd377 117-119
+  s_6be9ac016b0423::t_840ca1fa0c3dc3 3,14,16-28,53-55,58-70,72-75,88-89,96-97,103-104,106-107,114-116,128,132,134-139,144-160,163-172,183-184,189,192,203-236
+test/e2e/profiles/pokedex-compose.cjs
+  s_6be9ac016b0423::t_b1d76edc7ba051 25
+  s_6be9ac016b0423::t_eef953d0ee22db 1-24,26-34
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/GoToDefinition.kt
+  s_8c2dd9cae84381::t_22cabc81ea9230 159-160
+  s_8c2dd9cae84381::t_35261d7b698b62 149-155
+  s_8c2dd9cae84381::t_d50cc9b865568b 242
+  s_8c2dd9cae84381::t_63b0b3e26f5070 3,17-30,79-89,108-148,156-158,161-241
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/SemanticHighlighting.kt
+  s_8c2dd9cae84381::t_e8257ff81ea3bf 341-347
+  s_8c2dd9cae84381::t_cd5d86b8af959f 50-54,58,84,92,118-119,128-129,140-141,145,309-340,348-359
+src/extension.ts
+  s_6be9ac016b0423::t_790b781df64cd5 7,11,14,16,20,26,36-49,51-52,55,59,62-67,75-82,89-101,121,127-133,135-136,138,142-153,158-166
+  s_6be9ac016b0423::t_82bd8bad67dfa4 154-157
+  s_6be9ac016b0423::t_459ec39df3c93a 167
+lsp/app/src/main/kotlin/org/kotlinlsp/common/ReadWriteLock.kt
+  s_6be9ac016b0423::t_7e9e7a132c8007 71
+  s_6be9ac016b0423::t_0ba60056c94d6d 16,55,65
+  s_6be9ac016b0423::t_25cbd72d8a47b5 4-5,15,17-18,21,36-45,50,53-54,56-64,66-70,72-85
+  s_6be9ac016b0423::t_bacd1a7caf9008 35
+sidecar/src/main/kotlin/koda/sync/Main.kt
+  s_6be9ac016b0423::t_33f7568c8f2608 1-47,59-226
+  s_6be9ac016b0423::t_3609f749122b69 48-58
+lsp/app/src/main/kotlin/org/kotlinlsp/index/queries/SubpackageNames.kt
+  s_6be9ac016b0423::t_390007ca618851 15
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/KotlinSourceNavigation.kt
+  s_8c2dd9cae84381::t_93c32736d52594 81-86
+  s_8c2dd9cae84381::t_6bc8bbb9054fb6 9,16-80,87,89-153,156-185,196,199,205,210
+  s_8c2dd9cae84381::t_84eb2383ca7a4e 154-155
+  s_8c2dd9cae84381::t_da0c933ebde342 1-8,10-15,88,186-195,197-198,200-204,206-209
+lsp/app/src/main/kotlin/org/kotlinlsp/common/ServerStatus.kt
+  s_6be9ac016b0423::t_d5ab3c3d53bb24 1-136
+test/e2e/run.mjs
+  s_6be9ac016b0423::t_be7c47057949a6 1-12,20-27,29-33,35,37-42,46,54-55,62-63,68,70-92,100,105-128
+  s_6be9ac016b0423::t_816984f850d0c6 93-99,131-139
+src/codelens/usagesCodeLens.ts
+  s_6be9ac016b0423::t_786898b4442fa7 62,93-94
+  s_8c2dd9cae84381::t_8ed10cdd06435a 81-82
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/services/DeclarationProviderFactory.kt
+  s_6be9ac016b0423::t_a2ce3da1e12b69 48,56,64,69,74,79,84,90,98,103,108,113
+  s_6be9ac016b0423::t_4e40081fa7de2b 141-147,188-232
+  s_6be9ac016b0423::t_ea07b438d305ac 4-5,75,80,99,104,109,114-140,149-150
+README.md
+  s_6be9ac016b0423::t_a65668594689c6 139
+  s_6be9ac016b0423::t_de11c7de5fbc2e 182-183,186-198
+  s_6be9ac016b0423::t_91315ec21cf181 105-123,140-152
+  s_6be9ac016b0423::t_98cdd9886c6da2 1-60,64,66,68,72-79,83-86,89-91,95-96,100-104,124-126,129,136-138,156-159,165,167-168,171,177-178,181,204-211,213-214
+src/ui/statusBar.ts
+  s_6be9ac016b0423::t_82bd8bad67dfa4 3,7,10-11,22,27,32,40,51-100,102-128,139-142
+  s_6be9ac016b0423::t_575745a5d2d516 101
+  s_6be9ac016b0423::t_1cd66074e9b0cc 129-138,143-149
+package-lock.json
+  s_8c2dd9cae84381::t_3ba8ff35f09492 2-3,8-9,11-13,6192-6257
+THIRD_PARTY_NOTICES.md
+  s_6be9ac016b0423::t_ff711b34bc02e8 1-37
+gradle/koda.init.gradle
+  s_6be9ac016b0423::t_fca4fa2d1226aa 1,3,25,30,33,38-39,51,55,77,233,237,242,247
+lsp/app/build.gradle.kts
+  s_6be9ac016b0423::t_b7e4e63c6cb8af 1-2,4-10,13,22-37,46-49,52,58-112,114-133,141,144-176,178,185,200-204,248-253
+lsp/app/src/main/kotlin/com/intellij/util/IntelliJCoroutinesFacade.kt
+  s_6be9ac016b0423::t_0891d9d25baa53 1-37
+lsp/app/src/main/kotlin/org/kotlinlsp/Main.kt
+  s_6be9ac016b0423::t_8e391c0ec6897c 3,16,48-56,67,70-75,104,110-122
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/Formatting.kt
+  s_6be9ac016b0423::t_203ec484fd9b84 1-86
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/JavaSourceNavigation.kt
+  s_6be9ac016b0423::t_49082dfadc4477 1-65
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/OrganizeImports.kt
+  s_6be9ac016b0423::t_1230fbe13b5605 1-148
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/ParameterNameHints.kt
+  s_6be9ac016b0423::t_1ebc917f23298c 1-66
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/SignatureHelp.kt
+  s_6be9ac016b0423::t_02872dbf991381 1-139
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/autocomplete/Autocomplete.kt
+  s_6be9ac016b0423::t_a79df14daf1229 3,14,20,24-39,49-51,53-60,62-63,65,69-70,80,88-103,105,107-126
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/autocomplete/CompletionItems.kt
+  s_6be9ac016b0423::t_c01ce6d9569783 1-280
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/autocomplete/ContextCompletion.kt
+  s_6be9ac016b0423::t_e67900eaad2b45 1-229
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/autocomplete/DeclarationExtensions.kt
+  s_6be9ac016b0423::t_68c0813ace69ef 4-5,15,59-66,70-72
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/autocomplete/DotExpressionCompletion.kt
+  s_6be9ac016b0423::t_c2f495b8b43b46 3,14-15,17-19,21-32,34-35,37,40-49,54-57,59-121,123-126,128-136,140-147,151-152,155-156,158-205
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/autocomplete/ExpectedType.kt
+  s_6be9ac016b0423::t_968f7784a2ed99 1-234
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/autocomplete/LabelCompletion.kt
+  s_6be9ac016b0423::t_5219088119e11b 1-120
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/autocomplete/TypeCompletion.kt
+  s_6be9ac016b0423::t_ace6431b208893 2,11,13-27,29-83
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/codeaction/CodeActionRegistry.kt
+  s_6be9ac016b0423::t_4a95ed353b957d 53-54
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/codeaction/providers/AddImportFactory.kt
+  s_6be9ac016b0423::t_e99e01b26314ce 27-29,45-48,51-53,55,62-64,66-72,74-77
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/codeaction/providers/ImplementMembersFactory.kt
+  s_6be9ac016b0423::t_6661551922add1 2,20,23,25,27-34,40-42,44-48,50-54,58-65,67,71-74,77-85,88,90-116,118-121,123-128,132-139,141-143,146-147,149,153-155,158-164,167-171,173-174
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/compose/ComposeStability.kt
+  s_6be9ac016b0423::t_d7775e96a84e5e 1-185
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/compose/StabilityFeatures.kt
+  s_6be9ac016b0423::t_9f007e785480a6 2,11,13-26,28-83
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/hover/Hover.kt
+  s_6be9ac016b0423::t_a6808e8223a674 13,53,61-62,77-80
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/modules/LibraryModule.kt
+  s_6be9ac016b0423::t_0fddc996c787d8 3,167
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/modules/Serialization.kt
+  s_6be9ac016b0423::t_8a5e4cae684ce9 3,33-36,57-58,110-111,119,156-157,160-162,167,176-186
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/registration/AnalysisApiFir.kt
+  s_6be9ac016b0423::t_5b66ac516e5bf4 3,14-15,17-18,20-26,28-46
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/registration/LSPPlatform.kt
+  s_6be9ac016b0423::t_41ca52259d40d4 3,37,101,104,119-120
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/registration/Registrar.kt
+  s_6be9ac016b0423::t_baedade42f4850 3
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/services/AllMatchesJvmDependenciesIndex.kt
+  s_6be9ac016b0423::t_abde271dd0115f 1-101
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/services/LifetimeToken.kt
+  s_6be9ac016b0423::t_41f7575e08d6e3 1-50
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/services/PackagePartProviderFactory.kt
+  s_6be9ac016b0423::t_c8ecc7dfcbd270 3,33
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/services/StubBuilder.kt
+  s_6be9ac016b0423::t_a9439906de2e90 62
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/services/ThreadSafeJavaFileManager.kt
+  s_6be9ac016b0423::t_87dec3e88604bd 1-49
+lsp/app/src/main/kotlin/org/kotlinlsp/buildsystem/FileBased.kt
+  s_6be9ac016b0423::t_2bfc6b6ad365fb 3,24-25,28,31,33-37,43,45-47
+lsp/app/src/main/kotlin/org/kotlinlsp/common/CacheFolder.kt
+  s_6be9ac016b0423::t_557d02bbf79934 3,21
+lsp/app/src/main/kotlin/org/kotlinlsp/common/LaunchOptions.kt
+  s_6be9ac016b0423::t_16780c6cfd714f 1-45
+lsp/app/src/main/kotlin/org/kotlinlsp/common/Sources.kt
+  s_6be9ac016b0423::t_d019499927fdf9 3,12-97
+lsp/app/src/main/kotlin/org/kotlinlsp/common/Text.kt
+  s_6be9ac016b0423::t_fcde694a03e25d 92-94,99-112
+lsp/app/src/main/kotlin/org/kotlinlsp/index/Command.kt
+  s_6be9ac016b0423::t_46e24baaea54e2 4-5,22-23
+lsp/app/src/main/kotlin/org/kotlinlsp/index/ScanFilesThread.kt
+  s_6be9ac016b0423::t_2b27168b274926 4-5,57-59,178,203,256,279,324-328
+lsp/app/src/main/kotlin/org/kotlinlsp/index/db/Declaration.kt
+  s_6be9ac016b0423::t_3ae1be25279486 4-5,46-47,96-98,130-138
+lsp/app/src/main/kotlin/org/kotlinlsp/index/db/adapters/RocksDBAdapter.kt
+  s_6be9ac016b0423::t_ca383d6decd2d1 3,33-38,97,105-110,112-132,134-137,141-143,153
+lsp/app/src/main/kotlin/org/kotlinlsp/index/worker/IndexClassFile.kt
+  s_6be9ac016b0423::t_182ede5e79908a 3,30-35,93-121,125-129,132,136-137,150,175,177,192,199-201,213,252-255
+lsp/app/src/main/kotlin/org/kotlinlsp/index/worker/WorkerThread.kt
+  s_6be9ac016b0423::t_84e9e7ea4c0a26 4-5,15,100,119,125-126,135-136,138-139,142,144,146-147
+lsp/app/src/test/kotlin/org/kotlinlsp/CallSnippets.kt
+  s_6be9ac016b0423::t_8e9c543ff3a25a 1-63
+lsp/app/src/test/kotlin/org/kotlinlsp/JavaReferences.kt
+  s_6be9ac016b0423::t_bb1009b19899cf 1-87
+lsp/app/src/test/kotlin/org/kotlinlsp/LibraryResolution.kt
+  s_6be9ac016b0423::t_84a4cd2c230d54 1-103
+lsp/app/src/test/kotlin/org/kotlinlsp/UriToPath.kt
+  s_6be9ac016b0423::t_9f0f52e0f2ebcf 2,11,13-28
+lsp/formatter/build.gradle.kts
+  s_6be9ac016b0423::t_f42198f71d62ea 1-25
+lsp/formatter/src/main/kotlin/org/kotlinlsp/formatter/KtlintFormatter.kt
+  s_6be9ac016b0423::t_8e34a60db16a78 1-94
+lsp/licenses/amgdev9-kotlin-lsp_LICENSE.txt
+  s_6be9ac016b0423::t_dfc46e7b52db95 1-21
+lsp/settings.gradle.kts
+  s_6be9ac016b0423::t_e920b13ca16e54 4
+sidecar/build.gradle.kts
+  s_6be9ac016b0423::t_e48f20b71fe805 28-29
+sidecar/settings.gradle.kts
+  s_6be9ac016b0423::t_28354477d853c6 16
+sidecar/src/main/kotlin/koda/sync/Extras.kt
+  s_6be9ac016b0423::t_74709ae2b0fab5 1,4,6,10,14-15
+sidecar/src/main/kotlin/koda/sync/SyncAction.kt
+  s_6be9ac016b0423::t_bc6aedbfc56899 1,118
+src/gradle/javaHome.ts
+  s_6be9ac016b0423::t_46239d9f19239f 19-23,34,36,54
+src/gradle/modelTypes.ts
+  s_6be9ac016b0423::t_965a445e8cdd28 1-2
+src/log.ts
+  s_6be9ac016b0423::t_73d2f4f4a7f65a 6
+src/server/modulesJson.ts
+  s_6be9ac016b0423::t_2fa99b02a2918a 1,3-6,25-44,49,61,65-66,73-74,93,101-102,104,106-107,118,127-131,146-149,151,153-166,175-177,190,192,195,203,205-206,208-210,221-228,236,246,248,250,253,258,263,267-268,271-280,282,304,306-309,313,315-329,333,336-338,341-342
+src/sync/watchers.ts
+  s_6be9ac016b0423::t_93d2e058f3c847 32,51
+test/unit/modulesJson.test.ts
+  s_6be9ac016b0423::t_223783baab02b1 1-2,5,10,13-15,19-30,32-34,37-40,42,44-46,50-53,57,61-72,75-80,89-91,94-102,106-108,111-121,123,126-131,133,137-145
+test/unit/syncRunner.test.ts
+  s_6be9ac016b0423::t_314cd04c8bf8af 17,24,26-27
+tools/convert-model.ts
+  s_6be9ac016b0423::t_1ab6450ae8d78d 1,6,10,14,16,18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5f8712e62f82800cbffecc6207f5c947de0f689a",
+  "prompts": {},
+  "sessions": {
+    "s_6be9ac016b0423": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93d63be7-1fb2-490c-8f99-a1f91224dcbe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "michaeltiket <michael.michael@tiket.com>"
+    },
+    "s_8c2dd9cae84381": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6bb63696-42de-47a1-be8d-b0017599d366",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "michaeltiket <michael.michael@tiket.com>"
+    }
+  }
+}
