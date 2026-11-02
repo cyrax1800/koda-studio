@@ -1,0 +1,75 @@
+lsp/app/test-projects/multi-module/submodule/build.gradle.kts
+  s_58c38fa4c8aba9::t_d3f960790c4902 13
+test/unit/fixtures.ts
+  s_58c38fa4c8aba9::t_727acaeee48821 8,243
+  s_58c38fa4c8aba9::t_26b1e4a8e18ea5 205,215
+  s_58c38fa4c8aba9::t_41c051d1789e21 206,216
+lsp/app/build.gradle.kts
+  s_58c38fa4c8aba9::t_71a96a646e8f49 19,22-23
+  s_58c38fa4c8aba9::t_fdb4e4ce971f51 195-197,200
+  s_58c38fa4c8aba9::t_5da590c1b0d71d 183
+  s_58c38fa4c8aba9::t_ab56afb5e77fbf 201
+lsp/app/src/main/kotlin/org/kotlinlsp/index/db/Database.kt
+  s_58c38fa4c8aba9::t_5be4084cead8f4 43-49,51,53-58
+  s_58c38fa4c8aba9::t_09d03f72c4f0cf 165-167,169,171-176,178-186,188-191,194-199
+  s_58c38fa4c8aba9::t_5c03d9d3eb892f 168,170,177,187,192-193
+lsp/app/src/main/kotlin/org/kotlinlsp/lsp/Server.kt
+  s_58c38fa4c8aba9::t_656d7242748c64 55-59,201,231
+lsp/formatter/build.gradle.kts
+  s_58c38fa4c8aba9::t_796daed69a95fb 10,12-20
+lsp/app/src/main/kotlin/org/kotlinlsp/index/Index.kt
+  s_58c38fa4c8aba9::t_b297e9086e78d1 31-34
+  s_58c38fa4c8aba9::t_4abc3d284c79f0 105,108-119
+  s_58c38fa4c8aba9::t_70633d0d269a44 120
+lsp/app/test-projects/single-module/app/build.gradle.kts
+  s_58c38fa4c8aba9::t_d3f960790c4902 14
+lsp/.github/workflows/release.yml
+  s_58c38fa4c8aba9::t_26b1e4a8e18ea5 23
+lsp/app/src/test/kotlin/org/kotlinlsp/ModuleDependents.kt
+  s_58c38fa4c8aba9::t_d3f960790c4902 89
+src/sync/syncService.ts
+  s_58c38fa4c8aba9::t_a6b2cd00e4954c 76-80,226,231
+  s_58c38fa4c8aba9::t_d0cc59e17cf401 28
+lsp/app/src/main/kotlin/org/kotlinlsp/common/ReadWriteLock.kt
+  s_58c38fa4c8aba9::t_4abc3d284c79f0 48-56
+test/unit/modulesJson.test.ts
+  s_58c38fa4c8aba9::t_727acaeee48821 151
+  s_58c38fa4c8aba9::t_21a1f66dd2418c 94-102
+src/extension.ts
+  s_58c38fa4c8aba9::t_71279fd301d63d 78-83
+lsp/app/test-projects/multi-module/app/build.gradle.kts
+  s_58c38fa4c8aba9::t_d3f960790c4902 16
+lsp/app/src/test/kotlin/org/kotlinlsp/setup/Scenario.kt
+  s_58c38fa4c8aba9::t_26b1e4a8e18ea5 38,40,46,48
+lsp/gradle/wrapper/gradle-wrapper.properties
+  s_58c38fa4c8aba9::t_5ef20155481a79 3
+lsp/.github/workflows/push.yml
+  s_58c38fa4c8aba9::t_26b1e4a8e18ea5 20
+lsp/app/src/test/kotlin/org/kotlinlsp/LibraryResolution.kt
+  s_58c38fa4c8aba9::t_d3f960790c4902 87
+src/server/modulesJson.ts
+  s_58c38fa4c8aba9::t_a6b2cd00e4954c 63-68,110,138-142,272
+lsp/app/src/test/kotlin/org/kotlinlsp/index/DatabaseTests.kt
+  s_58c38fa4c8aba9::t_c8a28861b21abb 13,50-74
+  s_58c38fa4c8aba9::t_241f8c233988c4 75-77
+src/server/languageClient.ts
+  s_58c38fa4c8aba9::t_f2513a854723af 2,36-37,155-156,159-161,177-180,183-185
+  s_58c38fa4c8aba9::t_306f5eca452a6b 157-158,279-293
+  s_58c38fa4c8aba9::t_fa5e13985a0acf 294
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b4edbab897fd7047c92e0ff0396f097ad97110a7",
+  "prompts": {},
+  "sessions": {
+    "s_58c38fa4c8aba9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "661c996e-85b2-4480-8648-61077720cb4b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "michaeltiket <michael.michael@tiket.com>"
+    }
+  }
+}
