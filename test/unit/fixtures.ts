@@ -5,7 +5,7 @@ import type { AndroidComponent, ExtrasComponent, GradleProjectModel, ProjectMode
 export const ROOT = '/work/demo';
 export const SDK = '/sdk';
 export const GRADLE_HOME = '/home/.gradle';
-export const JDK = '/jdk/21';
+export const JDK = '/jdk/25';
 
 const kotlin = (task: string, extra: Partial<NonNullable<ExtrasComponent['kotlin']>> = {}) => ({
   task,
@@ -202,8 +202,8 @@ const coreModel: GradleProjectModel = {
           },
         ],
         projectDependencies: [],
-        kotlin: kotlin('compileKotlin', { jvmTarget: '21', freeCompilerArgs: [], optIn: [] }),
-        javaRelease: '21',
+        kotlin: kotlin('compileKotlin', { jvmTarget: '25', freeCompilerArgs: [], optIn: [] }),
+        javaRelease: '25',
       },
       test: {
         javaDirs: [`${ROOT}/core/model/src/test/java`],
@@ -212,8 +212,8 @@ const coreModel: GradleProjectModel = {
         generatedDirs: [],
         libraries: [],
         projectDependencies: [],
-        kotlin: kotlin('compileTestKotlin', { jvmTarget: '21', freeCompilerArgs: [], optIn: [] }),
-        javaRelease: '21',
+        kotlin: kotlin('compileTestKotlin', { jvmTarget: '25', freeCompilerArgs: [], optIn: [] }),
+        javaRelease: '25',
       },
     },
   },
@@ -240,7 +240,7 @@ export function demoModel(): ProjectModel {
 
 /** Every path mentioned in the model exists, except the ones in `missing`. */
 export function fakeFs(model: ProjectModel, missing: string[] = []) {
-  const files = new Map<string, string>([[`${JDK}/release`, 'JAVA_VERSION="21.0.2"\n']]);
+  const files = new Map<string, string>([[`${JDK}/release`, 'JAVA_VERSION="25.0.3"\n']]);
   const existing = new Set<string>();
   const add = (p: string) => existing.add(p);
   const walk = (value: unknown) => {

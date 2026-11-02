@@ -86,7 +86,7 @@ class ModuleDependents {
         }).join()
         server.initialized(InitializedParams())
         try {
-            val session = KotlinLanguageServer::class.java.getDeclaredField("analysisSession").apply { isAccessible = true }.get(server)
+            val session = KotlinLanguageServer::class.java.getDeclaredField("loadedSession").apply { isAccessible = true }.get(server)
             val project = session.javaClass.getDeclaredField("project").apply { isAccessible = true }.get(session) as MockProject
             fun kaModule(file: File): KaModule = project.read {
                 val psi = PsiManager.getInstance(project).findFile(VirtualFileManager.getInstance().findFileByNioPath(file.toPath())!!)!!

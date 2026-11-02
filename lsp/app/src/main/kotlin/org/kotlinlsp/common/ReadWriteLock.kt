@@ -45,6 +45,15 @@ private inline fun <T> withAttachmentsLogged(fn: () -> T): T = try {
     throw e
 }
 
+/**
+ * Whether this thread holds the read lock while a write waits for it. Readers that come after the write queue behind
+ * it, so waiting here for another thread's read (the source scan) waits forever.
+ */
+fun Project.readHeldWhileWriteWaits(): Boolean {
+    val lock = getUserData(key)!!
+    return lock.readHoldCount > 0 && lock.hasQueuedThreads()
+}
+
 fun <T> Project.write(fn: () -> T): T {
     val lock = getUserData(key)!!
     cancelBackgroundReads()

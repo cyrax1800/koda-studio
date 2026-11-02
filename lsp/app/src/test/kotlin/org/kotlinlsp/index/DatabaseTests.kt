@@ -10,6 +10,7 @@
 
 package org.kotlinlsp.index
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.kotlinlsp.common.setupLogger
@@ -43,6 +44,34 @@ class DatabaseTests {
             assertNull(db.packagesDb.get<List<String>>(packageName), "Package entry should be removed when no files remain")
         } finally {
             db.close()
+            tempDir.toFile().deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `a damaged index is recreated instead of failing the start`() {
+        setupLogger(mock(LanguageClient::class.java))
+        val tempDir = Files.createTempDirectory("kotlinlsp-db-test")
+        try {
+            Database(tempDir.toAbsolutePath().toString()).close()
+            // An .sst file the MANIFEST lists, then deleted: what a VS Code storage cleanup left behind.
+            val packages = tempDir.resolve(".kotlin-lsp/packages").toString()
+            org.rocksdb.RocksDB.open(packages).use { raw ->
+                raw.put("com.example".toByteArray(), "x".toByteArray())
+                org.rocksdb.FlushOptions().setWaitForFlush(true).use { raw.flush(it) }
+            }
+            val ssts = java.io.File(packages).listFiles { f -> f.name.endsWith(".sst") }!!
+            check(ssts.isNotEmpty())
+            ssts.forEach { it.delete() }
+
+            val db = Database(tempDir.toAbsolutePath().toString())
+            try {
+                db.packagesDb.put("com.example", listOf("file:///tmp/a.kt"))
+                assertEquals(listOf("file:///tmp/a.kt"), db.packagesDb.get<List<String>>("com.example"))
+            } finally {
+                db.close()
+            }
+        } finally {
             tempDir.toFile().deleteRecursively()
         }
     }

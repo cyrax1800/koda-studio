@@ -75,7 +75,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<KodaAp
   // Rewrites modules.json if the converter changed since the last sync; that event starts the server.
   service.refreshFromModel('startup');
   void server.start().catch(() => undefined);
-  if (gradleFilesNewerThan(service.root, service.modelFile)) {
+  if (service.missingLibraries > 0) {
+    // After a Gradle upgrade the old version's transformed AAR jars are deleted: every AndroidX and Hilt reference
+    // was unresolved while a "Gradle files have changed" toast went unnoticed. The sync's end restarts the server.
+    log().warn(`${service.missingLibraries} libraries are missing from the Gradle cache; syncing again.`);
+    void service.sync({ reason: 'libraries missing from the Gradle cache' });
+  } else if (gradleFilesNewerThan(service.root, service.modelFile)) {
     const syncNow = 'Sync Now';
     void vscode.window.showInformationMessage('Gradle files have changed since the last Android sync.', syncNow).then((choice) => {
       if (choice === syncNow) void service.sync({ reason: 'Gradle files changed while closed' });

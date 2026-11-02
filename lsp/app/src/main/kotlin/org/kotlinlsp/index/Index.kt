@@ -28,6 +28,10 @@ import org.kotlinlsp.index.worker.WorkerThread
 import org.kotlinlsp.index.worker.WorkerThreadNotifier
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.ProgressManager
+import org.kotlinlsp.common.readHeldWhileWriteWaits
 
 interface IndexNotifier {
     fun onBackgroundIndexFinished()
@@ -98,8 +102,21 @@ class Index(
     }
 
     fun <T> query(block: (connection: Database) -> T): T {
-        sourceFileScanningFinishedSignal.await()
+        awaitSourceScan()
         return block(db)
+    }
+
+    /**
+     * Waits for the first scan of source files. Diagnostics waited here holding the read lock; a changed file queued
+     * the write lock, the scan's next read queued behind that, and the three waited for each other for good: the
+     * server stopped reading messages, `shutdown` too, and outlived its window. Such a read now backs out as cancelled
+     * (diagnostics and background requests run again after the write), as does any read an edit cancels.
+     */
+    private fun awaitSourceScan() {
+        while (!sourceFileScanningFinishedSignal.await(50, TimeUnit.MILLISECONDS)) {
+            ProgressManager.checkCanceled()
+            if (project.readHeldWhileWriteWaits()) throw ProcessCanceledException()
+        }
     }
 
     fun openKtFile(path: String, ktFile: KtFile) {

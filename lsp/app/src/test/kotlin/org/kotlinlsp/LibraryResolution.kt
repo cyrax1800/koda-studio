@@ -84,7 +84,7 @@ class LibraryResolution {
         }).join()
         server.initialized(InitializedParams())
         try {
-            val session = KotlinLanguageServer::class.java.getDeclaredField("analysisSession").apply { isAccessible = true }.get(server)
+            val session = KotlinLanguageServer::class.java.getDeclaredField("loadedSession").apply { isAccessible = true }.get(server)
             val project = session.javaClass.getDeclaredField("project").apply { isAccessible = true }.get(session) as MockProject
             val scope = GlobalSearchScope.allScope(project)
             val classId = ClassId.fromString("kotlinx/coroutines/CoroutineDispatcher")

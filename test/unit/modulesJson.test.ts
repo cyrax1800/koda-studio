@@ -91,6 +91,15 @@ describe('toModulesJson', () => {
     expect(home.contentRoots).not.toContain(missingKsp);
   });
 
+  it('counts libraries whose jars were deleted from the Gradle cache', () => {
+    expect(convert().missingLibraries).toBe(0);
+    // A Gradle upgrade deletes the old version's transformed AAR jars.
+    const { modules, missingLibraries, warnings } = convert([`${GRADLE_HOME}/caches/transforms/aa/transformed/core-1.16.0-api.jar`]);
+    expect(missingLibraries).toBe(1);
+    expect(modules.map((m) => m.id)).not.toContain('Gradle: androidx.core:core:1.16.0');
+    expect(warnings.join('\n')).toContain('androidx.core:core:1.16.0');
+  });
+
   it('dedupes libraries shared by modules, attaches cached sources and resolves them against the JDK and android.jar', () => {
     const { modules } = convert();
     expect(modules.filter((m) => m.id === 'Gradle: androidx.core:core:1.16.0')).toHaveLength(1);
@@ -139,7 +148,7 @@ describe('toModulesJson', () => {
       dependencies: [],
       contentRoots: [JDK],
       sourceRoots: null,
-      javaVersion: '21',
+      javaVersion: '25',
       isSource: false,
       isJdk: true,
     });

@@ -1,4 +1,5 @@
 // Runs our Kotlin language server (lsp/, shipped as server/kotlin-lsp) for one Android project.
+import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as vscode from 'vscode';
@@ -32,6 +33,8 @@ export interface ServerProgress {
 
 export class KotlinServer implements vscode.Disposable {
   private client: LanguageClient | undefined;
+  /** The server's JVM (the launcher `exec`s java), killed when a stop times out. */
+  private serverProcess: ChildProcess | undefined;
   private starting: Promise<void> | undefined;
   private readonly stateEmitter = new vscode.EventEmitter<ServerState>();
   private readonly progressEmitter = new vscode.EventEmitter<ServerProgress>();
@@ -149,6 +152,13 @@ export class KotlinServer implements vscode.Disposable {
         this.stopping = false;
       }
     }
+    const server = this.serverProcess;
+    this.serverProcess = undefined;
+    // Killing it while it closes the index can damage the index, so it gets a moment to exit on its own.
+    if (server && !(await exited(server, 5_000))) {
+      log().warn(`The Kotlin server (pid ${server.pid}) didn't exit; killing it.`);
+      server.kill('SIGKILL');
+    }
     this._progress = undefined;
     this.setState('stopped');
   }
@@ -164,13 +174,15 @@ export class KotlinServer implements vscode.Disposable {
       fs.mkdirSync(this.indexDir, { recursive: true });
       log().info(`Starting the Kotlin server with Java ${java.version} (${java.source}), ${config.server.jvmArgs.join(' ')}`);
 
-      const serverOptions: ServerOptions = {
-        command: launcher,
-        args: [],
-        options: {
+      // Spawned here rather than by the client, which kept no handle on it: a server that didn't answer `shutdown`
+      // within the timeout stayed alive with its 3 GB heap, orphaned once the window reloaded.
+      const serverOptions: ServerOptions = async () => {
+        const child = spawn(launcher, [], {
           cwd: this.folder.uri.fsPath,
           env: { ...process.env, JAVA_HOME: java.home, JAVA_OPTS: config.server.jvmArgs.join(' ') },
-        },
+        });
+        this.serverProcess = child;
+        return child;
       };
       const clientOptions: LanguageClientOptions = {
         documentSelector: [
@@ -263,4 +275,20 @@ function ensureExecutable(file: string): void {
   } catch (e) {
     log().warn(`Could not make ${file} executable: ${String(e)}`);
   }
+}
+
+/** Whether the process has exited, or does within [timeoutMs]. */
+function exited(child: ChildProcess, timeoutMs: number): Promise<boolean> {
+  if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      child.off('exit', onExit);
+      resolve(false);
+    }, timeoutMs);
+    const onExit = () => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    child.once('exit', onExit);
+  });
 }

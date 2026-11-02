@@ -35,17 +35,17 @@ fun scenario(
               {
                 "id": "main",
                 "dependencies": [
-                    "JDK 21"
+                    "JDK 25"
                 ],
-                "javaVersion": "21",
+                "javaVersion": "25",
                 "contentRoots": ["$cwd/test-projects/$projectName"],
                 "isSource": true,
                 "kotlinVersion": "2.1"
               },
               {
-                "id": "JDK 21",
+                "id": "JDK 25",
                 "dependencies": [],
-                "javaVersion": "21",
+                "javaVersion": "25",
                 "isJdk": true,
                 "isSource": false,
                 "contentRoots": ["$jdkHome"]

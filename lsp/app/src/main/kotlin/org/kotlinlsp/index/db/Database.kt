@@ -40,26 +40,22 @@ class Database(rootFolder: String) {
 
     init {
         try {
-            var projectDb = RocksDBAdapter(cachePath.resolve("project"))
-            val schemaVersion = projectDb.get<Int>(VERSION_KEY)
-
-            if(schemaVersion == null || schemaVersion != CURRENT_SCHEMA_VERSION) {
-                // Schema version mismatch, wipe the db
-                info("Index DB schema version mismatch, recreating!")
-                projectDb.close()
+            val dbs = try {
+                openAll()
+            } catch (e: RocksDBException) {
+                // A missing or damaged file (VS Code killed mid-compaction, storage cleaned up) failed every start
+                // until the folder was deleted by hand. The index is only a cache: rebuild it.
+                if (!isCorruption(e)) throw e
+                warn("Index DB is damaged, recreating: ${e.message}")
                 deleteAll()
-
-                projectDb = RocksDBAdapter(cachePath.resolve("project"))
-                projectDb.put(VERSION_KEY, CURRENT_SCHEMA_VERSION)
+                openAll()
             }
-
-            artifactsDb = RocksDBAdapter(cachePath.resolve("artifacts"))
-            filesDb = RocksDBAdapter(cachePath.resolve("files"))
-            packagesDb = RocksDBAdapter(cachePath.resolve("packages"))
-            declarationsDb = RocksDBAdapter(cachePath.resolve("declarations"))
-            sourcesDb = RocksDBAdapter(cachePath.resolve("sources"))
-            sourceFilesDb = RocksDBAdapter(cachePath.resolve("sourceFiles"))
-            projectDb.close()
+            artifactsDb = dbs[0]
+            filesDb = dbs[1]
+            packagesDb = dbs[2]
+            declarationsDb = dbs[3]
+            sourcesDb = dbs[4]
+            sourceFilesDb = dbs[5]
         } catch (e: RocksDBException) {
             warn("Failed to initialize database: ${e.message}")
             warn("This might be due to another Kotlin LSP instance running. Please ensure only one instance is active.")
@@ -165,6 +161,41 @@ class Database(rootFolder: String) {
     }
 
     fun getTrackedFilePaths(): Sequence<String> = filesDb.prefixSearchRaw("").map { (key, _) -> key }
+
+    /** Artifacts, files, packages, declarations, sources, sourceFiles; on a failure, the ones opened are closed again. */
+    private fun openAll(): List<RocksDBAdapter> {
+        val opened = mutableListOf<RocksDBAdapter>()
+        var projectDb: RocksDBAdapter? = null
+        try {
+            projectDb = RocksDBAdapter(cachePath.resolve("project"))
+            val schemaVersion = projectDb.get<Int>(VERSION_KEY)
+
+            if(schemaVersion == null || schemaVersion != CURRENT_SCHEMA_VERSION) {
+                // Schema version mismatch, wipe the db
+                info("Index DB schema version mismatch, recreating!")
+                projectDb.close()
+                projectDb = null
+                deleteAll()
+
+                projectDb = RocksDBAdapter(cachePath.resolve("project"))
+                projectDb.put(VERSION_KEY, CURRENT_SCHEMA_VERSION)
+            }
+
+            for (name in listOf("artifacts", "files", "packages", "declarations", "sources", "sourceFiles")) {
+                opened += RocksDBAdapter(cachePath.resolve(name))
+            }
+            return opened
+        } catch (e: Exception) {
+            // Each open DB holds its folder's lock; a retry would fail on it.
+            opened.forEach { runCatching { it.close() } }
+            throw e
+        } finally {
+            projectDb?.let { runCatching { it.close() } }
+        }
+    }
+
+    private fun isCorruption(e: RocksDBException): Boolean =
+        e.status?.code == org.rocksdb.Status.Code.Corruption || e.message?.contains("Corruption") == true
 
     private fun deleteAll() {
         File(cachePath.resolve("project").absolutePathString()).deleteRecursively()

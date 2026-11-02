@@ -60,6 +60,12 @@ export interface ConvertOptions {
 export interface ConvertResult {
   modules: SerializedModule[];
   warnings: string[];
+  /**
+   * External libraries with a jar that no longer exists, left out of [modules]. Gradle deletes transformed AAR jars
+   * of an older Gradle version, so after a Gradle upgrade every AAR library (appcompat, lifecycle, Hilt) is gone
+   * until the next sync.
+   */
+  missingLibraries: number;
 }
 
 export const JDK_MODULE = 'jdk';
@@ -101,6 +107,7 @@ class Converter {
   private readonly sources: SerializedModule[] = [];
   private readonly libraries = new Map<string, SerializedModule>();
   private readonly warnings: string[] = [];
+  private readonly missingLibraries = new Set<string>();
   private readonly jdk: SerializedModule;
   private readonly sourcesJarCache = new Map<string, string | undefined>();
   /** The android.jar library, which AAR libraries need to resolve their Android supertypes. */
@@ -128,7 +135,11 @@ class Converter {
     const libraries = [...this.libraries.values()].map((library) =>
       library.id === this.androidSdk ? library : { ...library, dependencies: libraryDependencies },
     );
-    return { modules: [this.jdk, ...libraries, ...this.sources], warnings: this.warnings };
+    if (this.missingLibraries.size > 0) {
+      const examples = [...this.missingLibraries].slice(0, 3).join(', ');
+      this.warnings.push(`${this.missingLibraries.size} libraries have jars that no longer exist (${examples}…); sync again`);
+    }
+    return { modules: [this.jdk, ...libraries, ...this.sources], warnings: this.warnings, missingLibraries: this.missingLibraries.size };
   }
 
   // ---- Android ----
@@ -258,6 +269,7 @@ class Converter {
   private addExternalLibraries(dependencies: string[], libraries: ExternalLibrary[]): void {
     for (const library of libraries) {
       const files = library.files.filter((f) => this.fs.exists(f));
+      if (files.length < library.files.length) this.missingLibraries.add(library.id);
       if (files.length === 0) continue;
       const sources = this.sourcesJar(library);
       dependencies.push(this.putLibrary(`Gradle: ${library.id}`, files, sources ? [sources] : null));

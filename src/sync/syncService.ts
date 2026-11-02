@@ -25,6 +25,7 @@ export class SyncService implements vscode.Disposable {
   private current: Promise<boolean> | undefined;
   private abort: AbortController | undefined;
   private lastWrittenHash: string | undefined;
+  private _missingLibraries = 0;
   private model: ProjectModel | undefined;
   private _state: SyncState = { kind: 'idle' };
   /** Gradle and Kotlin daemons our syncs started, stopped when the window closes. Kept across reloads. */
@@ -70,6 +71,11 @@ export class SyncService implements vscode.Disposable {
   /** The module graph our Kotlin server reads. */
   get modulesFile(): string {
     return path.join(this.dataDir, 'modules.json');
+  }
+
+  /** Libraries of the last converted model whose jars are gone from the Gradle cache: the model needs a sync. */
+  get missingLibraries(): number {
+    return this._missingLibraries;
   }
 
   get running(): boolean {
@@ -217,11 +223,12 @@ export class SyncService implements vscode.Disposable {
   /** Writes modules.json when its content changed. Returns true if it did. */
   private writeModulesJson(model: ProjectModel): boolean {
     const config = readConfig(this.folder.uri);
-    const { modules, warnings } = toModulesJson(model, {
+    const { modules, warnings, missingLibraries } = toModulesJson(model, {
       librarySources: config.librarySources,
       androidSdkSources: config.androidSdkSources,
     });
     for (const warning of warnings) log().warn(warning);
+    this._missingLibraries = missingLibraries;
     const text = JSON.stringify(modules);
     const hash = createHash('sha256').update(text).digest('hex');
     if (this.lastWrittenHash === undefined && fs.existsSync(this.modulesFile)) {

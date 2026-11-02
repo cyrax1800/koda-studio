@@ -16,10 +16,11 @@ plugins {
     application
 }
 
-// Ensure Kotlin compiles to JVM 17 bytecode
+// Compiled by the JDK Gradle runs on (25) into JVM 17 bytecode, against the Java 17 API.
 kotlin {
-    jvmToolchain(17)
     compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        freeCompilerArgs.add("-Xjdk-release=17")
         // The server is an Analysis API platform, so it uses the platform-level and experimental APIs throughout.
         optIn.addAll(
             "org.jetbrains.kotlin.analysis.api.KaPlatformInterface",
@@ -179,7 +180,7 @@ dependencies {
     implementation("org.eclipse.lsp4j:org.eclipse.lsp4j:0.24.0")
     implementation("com.google.code.gson:gson:2.11.0")
     implementation("org.rocksdb:rocksdbjni:10.0.1")
-    implementation("org.gradle:gradle-tooling-api:8.14")
+    implementation("org.gradle:gradle-tooling-api:9.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
@@ -191,10 +192,12 @@ dependencies {
 }
 
 java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-    }
+    // Compiled by the JDK Gradle runs on (25), for Java 17: the server still runs on an older JDK.
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
+
+tasks.withType<JavaCompile>().configureEach { options.release = 17 }
 
 tasks.test {
     // Debug aid for LibraryResolution: pass -Plibres.modules=… -Plibres.file=… to run it on a real project.

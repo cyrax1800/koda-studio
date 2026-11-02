@@ -52,7 +52,11 @@ class KotlinLanguageServer(
     private val notifier: KotlinLanguageServerNotifier
 ) : LanguageServer, TextDocumentService, WorkspaceService, LanguageClientAware {
     private lateinit var client: LanguageClient
-    private lateinit var analysisSession: AnalysisSession
+    private lateinit var loadedSession: AnalysisSession
+    /** Requests after a failed load answered with a stack trace each (the client asks for code actions on every cursor move). */
+    private val analysisSession: AnalysisSession
+        get() = if (::loadedSession.isInitialized) loadedSession
+            else throw ResponseErrorException(ResponseError(ResponseErrorCode.ServerNotInitialized, "The Kotlin project isn't loaded", null))
     private lateinit var rootPath: String
     private val searchExecutor = Executors.newFixedThreadPool(2) { Thread(it, "KotlinLSP-search").apply { isDaemon = true } }
     private val lintExecutor = Executors.newSingleThreadScheduledExecutor {
@@ -194,7 +198,7 @@ class KotlinLanguageServer(
         info(rootPath)
 
         try {
-            analysisSession = AnalysisSession(analysisSessionNotifier, rootPath)
+            loadedSession = AnalysisSession(analysisSessionNotifier, rootPath)
         } catch (t: Throwable) {
             // Thrown inside a notification, this was only logged, and the client kept showing "loading" forever.
             val message = "The Kotlin server couldn't load the project: ${t.message ?: t.javaClass.simpleName}"
@@ -224,7 +228,7 @@ class KotlinLanguageServer(
         lintExecutor.shutdownNow()
         interactiveExecutor.shutdownNow()
         backgroundExecutor.shutdownNow()
-        analysisSession.dispose()
+        if (::loadedSession.isInitialized) loadedSession.dispose()
         notifier.onExit()
     }
 
