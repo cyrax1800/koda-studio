@@ -20,7 +20,7 @@ export interface KodaConfig {
     javaHome: string | undefined;
     jvmArgs: string[];
   };
-  /** Compose stability hints, warnings and hover, as skydoves' Compose Stability Analyzer reports it. */
+  /** Compose stability hints, warnings and hover. */
   composeStability: boolean;
   /** Completed Kotlin calls pass their required arguments by name: `Text(text = …)`. */
   namedArguments: boolean;

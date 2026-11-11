@@ -4,9 +4,8 @@ Code Android projects in VS Code with Koda Studio's own Kotlin language server: 
 definition, hover, find references, errors as you type, and a "N usages" CodeLens, across modules
 and the generated code Gradle reports. You don't need any JetBrains extension.
 
-> **Status: phase 2, milestone 5 (in progress).** The server is a fork of the open-source
-> [GSoC 2025 Kotlin LSP](https://github.com/H4-MM-3R/kotlin-lsp), in `lsp/`, upgraded to the Kotlin 2.4.20
-> compiler front end (Analysis API) with the IntelliJ 251 platform.
+> **Status: phase 2, milestone 5 (in progress).** The server, in `lsp/`, runs on the Kotlin 2.4.20 compiler
+> front end (Analysis API) with the IntelliJ 251 platform.
 >
 > What works now:
 > - errors as you type, including Kotlin 2.3 features such as explicit backing fields, using each module's
@@ -18,7 +17,7 @@ and the generated code Gradle reports. You don't need any JetBrains extension.
 > - parameter info while typing a call (`(` and `,` open it; **Cmd+Shift+Space** on macOS, Ctrl+Shift+Space elsewhere):
 >   every overload with types and defaults, the current parameter highlighted;
 > - parameter names before literal arguments, `Text(text: "Hi")` (`kodaStudio.inlayHints.parameterNames`);
-> - Compose stability, like skydoves' Compose Stability Analyzer: `stable` / `runtime` / `unstable` hints after
+> - Compose stability: `stable` / `runtime` / `unstable` hints after
 >   composable parameters, a warning on parameters that stop a composable from skipping, and the reasons on hover.
 >   Worked out live as you type (`kodaStudio.composeStability.enabled`);
 > - test source sets see `internal` declarations of their main source set;
@@ -142,7 +141,7 @@ folders without another sync.
 | `kodaStudio.gradle.arguments` | `[]` | Extra Gradle arguments. |
 | `kodaStudio.server.javaHome` | | Force a JDK for the Kotlin server. |
 | `kodaStudio.server.jvmArgs` | `["-Xmx3g", …]` | JVM arguments for the Kotlin server. The default keeps it at about 3.5–4 GB on a large project; a larger `-Xmx` makes big reference searches faster. |
-| `kodaStudio.librarySources` | `cached` | Attach `-sources.jar` files already in the Gradle cache. |
+| `kodaStudio.librarySources` | `download` | Library `-sources.jar` files for go to definition: `download` them during sync, use only those already `cached`, or `off`. |
 | `kodaStudio.androidSdkSources` | `false` | Attach Android SDK sources. Larger index. |
 | `kodaStudio.completion.namedArguments` | `true` | Completed Kotlin calls pass required arguments by name. |
 | `kodaStudio.inlayHints.parameterNames` | `literals` | Parameter names before `literals`, `all` arguments, or `none`. |
@@ -178,9 +177,8 @@ npm run build:sidecar   # Gradle sync tool → server/koda-sync.jar
 npm run build:lsp       # Kotlin language server (lsp/) → server/kotlin-lsp/
 npm run build
 npm test
-npm run test:e2e        # real VS Code on ~/Projects/Android/pokedex-compose
-npm run test:e2e:tiket  # the large project: clean index, then warm, with timings
-npm run package         # koda-studio-0.1.0.vsix
+npm run test:e2e        # real VS Code on a sample Android project
+npm run package         # koda-studio-<version>.vsix
 ```
 
 The build steps need a JDK 17+.
@@ -190,7 +188,7 @@ The end-to-end test opens a real VS Code with a throwaway profile. What it check
 references, CodeLens, restart), each timing with a budget it reports as `SLOW` when exceeded:
 
 ```bash
-node test/e2e/run.mjs ~/Projects/Android/tiketandroid --pass both   # clean, then warm on the same index
+node test/e2e/run.mjs <project> --pass both                        # clean, then warm on the same index
 node test/e2e/run.mjs <project> --pass clean --keep                 # keep the index for later --pass warm runs
 node test/e2e/run.mjs <project> --sync                              # also time a Gradle sync
 ```
@@ -208,7 +206,7 @@ node tools/convert-model.ts <project>/.gradle/koda/model.json <project>/.gradle/
 # Start the server headless on it and check diagnostics, completion, references and latency.
 node tools/lsp-probe.mjs --root <project> --server-cmd "$PWD/server/kotlin-lsp/bin/kotlin-lsp" \
   --init-options '{"modulesFile":"<project>/.gradle/koda/modules.json","indexDir":"/tmp/kotlin-index"}' \
-  --probes tools/probes/pokedex-compose.json
+  --probes <probes>.json
 ```
 
 Third-party code and licenses are listed in `THIRD_PARTY_NOTICES.md`.

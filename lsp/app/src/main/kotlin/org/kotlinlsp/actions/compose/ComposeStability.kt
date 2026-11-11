@@ -33,8 +33,7 @@ import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
 
 /**
- * Compose stability, worked out live as the Compose compiler does it, labelled like skydoves' Compose Stability
- * Analyzer reports (`STABLE`, `RUNTIME`, `UNSTABLE`). A composable is skippable when it is restartable and all its
+ * Compose stability, worked out live as the Compose compiler does it (`STABLE`, `RUNTIME`, `UNSTABLE`). A composable is skippable when it is restartable and all its
  * parameters are stable.
  */
 enum class StabilityKind { STABLE, RUNTIME, UNSTABLE }

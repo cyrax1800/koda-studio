@@ -74,7 +74,7 @@ fun hoverAction(ktFile: KtFile, position: Position, index: Index): Pair<String, 
     if(docText.isNotEmpty()){
         text = "$text\n\n---\n\n${formatter.formatDoc(docText)}\n"
     }
-    // Composables and their parameters: stability as skydoves' Compose Stability Analyzer reports it.
+    // Composables and their parameters: their Compose stability.
     if (org.kotlinlsp.common.LaunchOptions.composeStability) {
         analyze(ktElement) { stabilityHover(symbol.restoreSymbol()?.psi) }?.let { text = "$text\n\n---\n\n$it\n" }
     }

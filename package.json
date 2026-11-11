@@ -247,7 +247,7 @@
         "kodaStudio.composeStability.enabled": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Show the Compose stability of composable parameters (`stable`, `runtime`, `unstable`) as inlay hints, warn on unstable parameters, and explain it on hover, like skydoves' Compose Stability Analyzer. Takes effect after **Koda: Restart Kotlin Server**."
+          "markdownDescription": "Show the Compose stability of composable parameters (`stable`, `runtime`, `unstable`) as inlay hints, warn on unstable parameters, and explain it on hover. Takes effect after **Koda: Restart Kotlin Server**."
         },
         "kodaStudio.codeLens.enabled": {
           "type": "boolean",

@@ -142,7 +142,7 @@ function describeServer(state: ServerState, progress: ServerProgress | undefined
   return { text: '$(check) Kotlin', tooltip: 'The Kotlin server is ready. Click for its log.' };
 }
 
-/** `tiketandroid.features.feature_home.prodDebug` → `feature_home`; `app.main` → `app`. */
+/** `myapp.features.feature_home.prodDebug` → `feature_home`; `app.main` → `app`. */
 export function moduleName(id: string): string {
   const parts = id.split('.');
   return parts.length >= 3 ? parts[parts.length - 2]! : parts[0]!;
