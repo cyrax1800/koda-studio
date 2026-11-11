@@ -16,9 +16,24 @@ const context = await esbuild.context({
   logLevel: 'info',
 });
 
-if (watch) {
-  await context.watch();
-} else {
-  await context.rebuild();
-  await context.dispose();
+// Starts the server for Zed (zed/), which can't run a VS Code extension.
+const zedLauncher = await esbuild.context({
+  entryPoints: ['src/zed/launcher.ts'],
+  bundle: true,
+  format: 'cjs',
+  platform: 'node',
+  target: 'node20',
+  outfile: 'dist/zed-launcher.cjs',
+  sourcemap: !production,
+  minify: production,
+  logLevel: 'info',
+});
+
+for (const ctx of [context, zedLauncher]) {
+  if (watch) {
+    await ctx.watch();
+  } else {
+    await ctx.rebuild();
+    await ctx.dispose();
+  }
 }

@@ -145,6 +145,22 @@ class KotlinLanguageServer(
         }
     }
 
+    /** Whether the client lets us register file watchers (`workspace/didChangeWatchedFiles` dynamic registration). */
+    private var canWatchFiles = false
+
+    /**
+     * Asks the client to report Kotlin and Java files changed outside the editor (git checkout, generated sources).
+     * VS Code's extension sets up its own watcher; clients like Zed only watch what a server registers.
+     */
+    private fun watchSourceFiles() {
+        val options = DidChangeWatchedFilesRegistrationOptions(listOf(FileSystemWatcher(Either.forLeft("**/*.{kt,java}"))))
+        val registration = Registration("koda-source-watcher", "workspace/didChangeWatchedFiles", options)
+        client.registerCapability(RegistrationParams(listOf(registration))).exceptionally {
+            info("Couldn't register file watchers: ${it.message}")
+            null
+        }
+    }
+
     override fun initialize(params: InitializeParams): CompletableFuture<InitializeResult> {
         val capabilities = ServerCapabilities().apply {
             textDocumentSync = Either.forLeft(TextDocumentSyncKind.Incremental)
@@ -187,6 +203,7 @@ class KotlinLanguageServer(
         }
 
         LaunchOptions.read(params.initializationOptions)
+        canWatchFiles = params.capabilities?.workspace?.didChangeWatchedFiles?.dynamicRegistration == true
         // Unencoded when it has a space (`~/Android Projects/app`); `URI(…)` threw on that.
         rootPath = params.workspaceFolders.first().uri.uriToPath()
 
@@ -196,6 +213,7 @@ class KotlinLanguageServer(
     override fun initialized(params: InitializedParams) {
         setupLogger(client)
         info(rootPath)
+        if (LaunchOptions.watchFiles && canWatchFiles) watchSourceFiles()
 
         try {
             loadedSession = AnalysisSession(analysisSessionNotifier, rootPath)

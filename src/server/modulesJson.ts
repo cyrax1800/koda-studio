@@ -44,8 +44,8 @@ export interface SerializedModule {
 }
 
 export interface ConvertOptions {
-  /** `cached`: attach `-sources.jar` files already in the Gradle cache. */
-  librarySources: 'cached' | 'off';
+  /** `download` (the sync fetched them) or `cached`: attach `-sources.jar` files that are in the Gradle cache. */
+  librarySources: 'download' | 'cached' | 'off';
   /** Attach `<sdk>/sources/android-<api>`. */
   androidSdkSources?: boolean;
   gradleUserHome?: string;
@@ -296,7 +296,7 @@ class Converter {
   }
 
   private sourcesJar(library: ExternalLibrary): string | undefined {
-    if (this.options.librarySources !== 'cached' || !library.group || !library.module || !library.version) return undefined;
+    if (this.options.librarySources === 'off' || !library.group || !library.module || !library.version) return undefined;
     const key = library.id;
     if (this.sourcesJarCache.has(key)) return this.sourcesJarCache.get(key);
     const dir = path.join(this.gradleUserHome, 'caches', 'modules-2', 'files-2.1', library.group, library.module, library.version);

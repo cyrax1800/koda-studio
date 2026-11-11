@@ -321,6 +321,8 @@ class AnalysisSession(private val notifier: AnalysisSessionNotifier, rootPath: S
         val sourceChanges = changes
             .map { it.uri.normalizeUri() to it.type }
             .filter { (uri, _) -> uri.endsWith(".kt") || uri.endsWith(".java") }
+            // Library copies go to definition writes: Zed's index (and so its watcher) is inside the project.
+            .filterNot { (uri, _) -> isLibrarySourceCopy(uri) }
             .filter { (uri, type) -> type == FileChangeType.Deleted || index.getOpenedKtFile(uri) == null }
         if (sourceChanges.isEmpty()) return false
         val psiManager = PsiManager.getInstance(project)

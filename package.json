@@ -181,12 +181,18 @@
         "kodaStudio.librarySources": {
           "type": "string",
           "enum": [
+            "download",
             "cached",
             "off"
           ],
-          "default": "cached",
+          "default": "download",
           "scope": "resource",
-          "markdownDescription": "Attach library `-sources.jar` files that are already in the Gradle cache, so go to definition shows source instead of decompiled code."
+          "markdownDescription": "Attach library `-sources.jar` files so go to definition opens the real source instead of decompiled code.",
+          "enumDescriptions": [
+            "Each sync downloads the sources jars of all libraries (once; later syncs reuse the Gradle cache).",
+            "Only sources jars already in the Gradle cache (downloaded by Android Studio or an earlier sync).",
+            "No library sources: go to definition shows decompiled code."
+          ]
         },
         "kodaStudio.androidSdkSources": {
           "type": "boolean",
@@ -299,7 +305,8 @@
     "package": "npm run build:sidecar && npm run build:lsp && node esbuild.mjs --production && vsce package --no-dependencies --allow-missing-repository",
     "test:e2e": "npm run build && node test/e2e/run.mjs",
     "test:e2e:tiket": "npm run build && node test/e2e/run.mjs ~/Projects/Android/tiketandroid --pass both",
-    "build:lsp": "cd lsp && ./gradlew installDist -q && rm -rf ../server/kotlin-lsp && cp -R app/build/install/kotlin-lsp ../server/kotlin-lsp"
+    "build:lsp": "cd lsp && ./gradlew installDist -q && rm -rf ../server/kotlin-lsp && cp -R app/build/install/kotlin-lsp ../server/kotlin-lsp",
+    "install:zed": "sh tools/install-zed.sh"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

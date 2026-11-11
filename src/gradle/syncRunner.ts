@@ -16,6 +16,8 @@ export interface SyncRequest {
   java: JavaRuntime;
   /** Stop the Gradle daemon the sync started when it's done, freeing its memory for indexing. */
   stopDaemon?: boolean;
+  /** Download the `-sources.jar` of every library into the Gradle cache, for go to definition. */
+  downloadSources?: boolean;
 }
 
 export interface SyncListener {
@@ -55,6 +57,7 @@ export function syncArguments(request: SyncRequest): string[] {
     ...(request.variant ? ['--variant', request.variant] : []),
     ...(request.java.explicit ? ['--java-home', request.java.home] : []),
     ...(request.stopDaemon ? ['--stop-daemon'] : []),
+    ...(request.downloadSources ? ['--download-sources'] : []),
     ...request.gradleArguments.flatMap((a) => ['--gradle-arg', a]),
   ];
 }

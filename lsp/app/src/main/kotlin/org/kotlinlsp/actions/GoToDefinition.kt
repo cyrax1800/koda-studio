@@ -12,6 +12,7 @@
 package org.kotlinlsp.actions
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.JavaPsiFacade
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiJavaFile
 import com.intellij.psi.PsiClass
@@ -31,7 +32,13 @@ import org.eclipse.lsp4j.Range
 import com.intellij.psi.ResolveResult
 import org.eclipse.lsp4j.Location
 import org.eclipse.lsp4j.Position
+import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
+import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaSyntheticJavaPropertySymbol
+import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.idea.references.KtReference
 import org.jetbrains.kotlin.psi.KtFile
@@ -67,8 +74,9 @@ fun goToDefinitionAction(ktFile: KtFile, position: Position, index: Index): List
         if (possibleLocations.isNotEmpty()) return possibleLocations
     }
 
+    // A compiled Kotlin library without sources (an internal AAR, the stdlib) resolves to symbols without PSI.
     if (elements.isEmpty()) {
-        return emptyList()
+        return listOfNotNull(compiledLibraryElement(ktFile, ref)?.let { libraryLocation(it, index) })
     }
 
     // Regular source file logic
@@ -105,7 +113,55 @@ private fun KaSession.getFromSourcesJar(ktFile: KtFile, ref: KtReference, index:
     })
 }
 
-/** [element] in the class file decompiled to Java, written next to the cached sources (`<index>/decompiled/…`). */
+/** Qualified names of the part classes of a multifile facade class (`kotlin.collections.MapsKt__MapsKt`), if it is one. */
+private fun multifileParts(facadeClass: PsiClass): List<String> {
+    val path = facadeClass.containingFile?.virtualFile?.path ?: return emptyList()
+    val jar = path.substringBefore("!/", "").takeIf { it.isNotEmpty() } ?: return emptyList()
+    val prefix = path.substringAfter("!/").removeSuffix(".class") + "__"
+    return runCatching {
+        java.util.zip.ZipFile(jar).use { zip ->
+            zip.entries().asSequence().map { it.name }
+                .filter { it.startsWith(prefix) && it.endsWith(".class") && '$' !in it }
+                .map { it.removeSuffix(".class").replace('/', '.') }
+                .toList()
+        }
+    }.getOrDefault(emptyList())
+}
+
+/**
+ * The declaration [ref] resolves to, as a member of its class file: Kotlin classes compile to class files that Java
+ * PSI reads like any other, and top-level declarations live in their file's facade class (`emptyMap` in `MapsKt`).
+ * Properties are found through their getter or backing field.
+ */
+@OptIn(KaExperimentalApi::class)
+private fun KaSession.compiledLibraryElement(ktFile: KtFile, ref: KtReference): PsiElement? {
+    val symbol = ref.resolveToSymbols().firstOrNull() ?: return null
+    val facade = JavaPsiFacade.getInstance(ktFile.project)
+    val scope = ktFile.resolveScope
+    fun findClass(classId: ClassId?): PsiClass? = classId?.let { facade.findClass(it.asSingleFqName().asString(), scope) }
+    return when (symbol) {
+        is KaConstructorSymbol -> findClass(symbol.containingClassId)
+        is KaClassSymbol -> findClass(symbol.classId)
+        is KaCallableSymbol -> {
+            val target = ((symbol as? KaSyntheticJavaPropertySymbol)?.javaGetterSymbol ?: symbol).fakeOverrideOriginal
+            val callableId = target.callableId ?: return null
+            val owner = findClass(callableId.classId)
+                ?: target.containingJvmClassName?.let { facade.findClass(it, scope) }
+                ?: return null
+            val name = callableId.callableName.asString()
+            val capitalized = name.replaceFirstChar(Char::uppercaseChar)
+            fun member(cls: PsiClass): PsiElement? = listOf(name, "get$capitalized", "is$capitalized")
+                .firstNotNullOfOrNull { cls.findMethodsByName(it, false).firstOrNull() }
+                ?: cls.findFieldByName(name, false)
+            // A multifile facade (`MapsKt`) only delegates: the declaration's text is in one of its parts (`MapsKt__MapsKt`).
+            multifileParts(owner).mapNotNull { facade.findClass(it, scope) }.firstNotNullOfOrNull(::member)
+                ?: member(owner)
+                ?: owner
+        }
+        else -> null
+    }
+}
+
 /**
  * Where a declaration from a library class file is, as a file the editor can open (written under `<index>/decompiled/`):
  * the class's source from its library's sources jar (`.java` or `.kt`), else the Android SDK's sources for android.jar,
@@ -117,7 +173,11 @@ fun libraryLocation(element: PsiElement, index: Index): Location? {
         ?: LibraryParameterNames.sdkSourceFile(classFile)?.let { it.name to it.readText() }
         ?: (runCatching { decompileWithBodies(classFile) ?: (element.containingFile as? ClsFileImpl)?.let(::decompile) }
             .onFailure { org.kotlinlsp.common.warn("Decompiling ${classFile.url} failed: $it") }
-            .getOrNull()?.let { classFile.nameWithoutExtension.substringBefore('$') + ".decompiled.java" to it })
+            .getOrNull()?.let { text ->
+                // Vineflower writes Kotlin classes as Kotlin (`package a.b` without `;`), so the editor highlights them as Kotlin.
+                val kotlin = Regex("^package\\s+[\\w.]+\\s*$", RegexOption.MULTILINE).containsMatchIn(text)
+                classFile.nameWithoutExtension.substringBefore('$') + (if (kotlin) ".decompiled.kt" else ".decompiled.java") to text
+            })
         ?: return null
 
     val packagePath = classFile.path.substringAfter("!/").substringBeforeLast('/', "")

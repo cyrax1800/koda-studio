@@ -158,6 +158,7 @@ export class SyncService implements vscode.Disposable {
               gradleArguments: config.gradleArguments,
               java,
               stopDaemon,
+              downloadSources: config.librarySources === 'download',
             },
             {
               progress: (message) => report(message),

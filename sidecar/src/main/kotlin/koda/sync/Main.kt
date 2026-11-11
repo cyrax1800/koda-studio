@@ -26,6 +26,8 @@ private class Options(
   val gradleArgs: List<String>,
   /** Stop the Gradle daemon this sync started once it's done: the Kotlin server indexes next and needs the memory. */
   val stopDaemon: Boolean,
+  /** Download the `-sources.jar` of every library (the init script's `koda.downloadSources`). */
+  val downloadSources: Boolean,
 )
 
 private val events: PrintStream = PrintStream(System.out, true, Charsets.UTF_8)
@@ -86,6 +88,7 @@ private fun sync(
     add("-Pandroid.injected.build.model.v2=true")
     add("-Pandroid.injected.invoked.from.ide=true")
     add("-Pandroid.injected.build.model.disable.src.download=true")
+    if (options.downloadSources) add("-Pkoda.downloadSources=true")
     addAll(options.gradleArgs)
   }
   val modelJson = connection.action(SyncAction(options.variant)).also { action ->
@@ -166,6 +169,7 @@ private fun parseOptions(args: Array<String>): Options {
   var javaHome: File? = null
   var generate = "light"
   var stopDaemon = false
+  var downloadSources = false
   val gradleArgs = mutableListOf<String>()
   var i = 0
   fun value(): String = args.getOrNull(++i) ?: throw IllegalArgumentException("missing value for ${args[i - 1]}")
@@ -179,6 +183,7 @@ private fun parseOptions(args: Array<String>): Options {
       "--generate" -> generate = value().also { require(it in setOf("none", "light", "full")) { "--generate must be none|light|full" } }
       "--gradle-arg" -> gradleArgs += value()
       "--stop-daemon" -> stopDaemon = true
+      "--download-sources" -> downloadSources = true
       else -> throw IllegalArgumentException("unknown argument ${args[i]}")
     }
     i++
@@ -192,6 +197,7 @@ private fun parseOptions(args: Array<String>): Options {
     generate = generate,
     gradleArgs = gradleArgs,
     stopDaemon = stopDaemon,
+    downloadSources = downloadSources,
   )
 }
 

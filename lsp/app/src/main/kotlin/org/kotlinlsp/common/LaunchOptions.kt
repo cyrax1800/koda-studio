@@ -21,6 +21,8 @@ import com.google.gson.JsonObject
  * - `composeStability`: Compose stability hints, warnings and hover (default on).
  * - `namedArguments`: completed calls pass required arguments by name, `Text(text = …)` (default on).
  * - `parameterNameHints`: `literals` (default), `all` or `none`: parameter names shown before call arguments.
+ * - `watchFiles`: register a watcher for Kotlin and Java files with the client (default off; VS Code's extension watches
+ *   files itself, Zed only reports changes to watchers a server registers).
  */
 object LaunchOptions {
     @Volatile var modulesFile: String? = null
@@ -34,6 +36,9 @@ object LaunchOptions {
     @Volatile var parameterNameHints: String = "literals"
         private set
 
+    @Volatile var watchFiles: Boolean = false
+        private set
+
     fun read(initializationOptions: Any?) {
         val json = initializationOptions as? JsonObject ?: return
         modulesFile = json.get("modulesFile")?.takeIf { it.isJsonPrimitive }?.asString
@@ -41,5 +46,6 @@ object LaunchOptions {
         composeStability = json.get("composeStability")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: true
         namedArguments = json.get("namedArguments")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: true
         parameterNameHints = json.get("parameterNameHints")?.takeIf { it.isJsonPrimitive }?.asString ?: "literals"
+        watchFiles = json.get("watchFiles")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
     }
 }

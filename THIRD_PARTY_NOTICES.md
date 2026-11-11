@@ -35,3 +35,10 @@ Development Team and JetBrains s.r.o., a fork of IntelliJ's Fernflower decompile
 
 `syntaxes/kotlin.tmLanguage.json` and `language-configuration.json` come from the same project's
 VS Code extension (Apache License 2.0).
+
+## Zed: Kotlin language files
+
+`zed/languages/kotlin/` (tree-sitter queries, language configuration, test tasks) comes from
+[zed-extensions/kotlin](https://github.com/zed-extensions/kotlin) at commit `e94974e` (Copyright (c) 2024 Evren Sen,
+MIT License, full text in `zed/LICENSE-zed-kotlin`); the "run main" task was removed. Zed builds the grammar from
+[fwcd/tree-sitter-kotlin](https://github.com/fwcd/tree-sitter-kotlin) (MIT).

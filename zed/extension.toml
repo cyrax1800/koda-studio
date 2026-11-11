@@ -1,0 +1,17 @@
+id = "koda-studio"
+name = "Koda Studio"
+version = "0.1.1"
+schema_version = 1
+authors = ["Michael <12585119+cyrax1800@users.noreply.github.com>"]
+description = "Kotlin language server for Android Gradle projects: completion, navigation, references and errors across modules."
+repository = "https://github.com/cyrax1800/koda-studio"
+
+# The Kotlin language (grammar, highlighting, outline, test tasks) is bundled from zed-extensions/kotlin (MIT, see
+# LICENSE-zed-kotlin), so Zed's "Kotlin" extension isn't needed; installing both defines Kotlin twice.
+[grammars.kotlin]
+repository = "https://github.com/fwcd/tree-sitter-kotlin"
+commit = "1852ea17b7f60fb3f9d84e0b1555d56b46b39fb1"
+
+[language_servers.koda]
+name = "Koda Kotlin"
+languages = ["Kotlin"]
