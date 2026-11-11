@@ -1,0 +1,97 @@
+src/gradle/syncRunner.ts
+  s_31292b8446cb85::t_f6824c0430d670 19-20,60
+esbuild.mjs
+  s_31292b8446cb85::t_c70f5d61c5ffb5 19-38
+THIRD_PARTY_NOTICES.md
+  s_31292b8446cb85::t_31c54f88016849 38-44
+package.json
+  s_31292b8446cb85::t_7d0053e2d228d0 308-309
+  s_31292b8446cb85::t_f6824c0430d670 184,188,190-195
+zed/extension.toml
+  s_31292b8446cb85::t_f0f59fa54201c5 1-4,6,8,15-17
+  s_31292b8446cb85::t_e39fc795d1e40c 7
+  s_31292b8446cb85::t_cc364a24d17896 9-14
+  s_31292b8446cb85::t_57af1ee681ca07 5
+src/server/jvmArgs.ts
+  s_31292b8446cb85::t_8dafadc2aa4b42 5-12
+  s_31292b8446cb85::t_de43ea7663178f 1-4
+zed/languages/kotlin/highlights.scm
+  s_31292b8446cb85::t_17466476ee14fd 1-315
+zed/.gitignore
+  s_31292b8446cb85::t_57af1ee681ca07 3
+  s_31292b8446cb85::t_a570cb8b0fa825 1-2
+lsp/app/src/main/kotlin/org/kotlinlsp/common/LaunchOptions.kt
+  s_31292b8446cb85::t_f8421a0f45445b 24
+  s_31292b8446cb85::t_9388387347583a 25,39-41,49
+lsp/app/src/main/kotlin/org/kotlinlsp/lsp/Server.kt
+  s_31292b8446cb85::t_9388387347583a 148-163,206,216
+sidecar/src/main/kotlin/koda/sync/Main.kt
+  s_31292b8446cb85::t_f6824c0430d670 29-30,91,172,186,200
+lsp/app/src/main/kotlin/org/kotlinlsp/analysis/AnalysisSession.kt
+  s_31292b8446cb85::t_9cbf64e8b0a5cc 324-325
+zed/README.md
+  s_31292b8446cb85::t_a0653dbf336787 1-2,4-21,23-24,26-28
+  s_31292b8446cb85::t_33911e6048de22 22,25
+  s_31292b8446cb85::t_44a7dfe740716e 3
+src/sync/syncService.ts
+  s_31292b8446cb85::t_f6824c0430d670 161
+zed/languages/kotlin/config.toml
+  s_31292b8446cb85::t_17466476ee14fd 1-15
+tools/install-zed.sh
+  s_31292b8446cb85::t_7d0053e2d228d0 1-15
+zed/LICENSE-zed-kotlin
+  s_31292b8446cb85::t_17466476ee14fd 1-21
+src/zed/launcher.ts
+  s_31292b8446cb85::t_757d44b5993d13 69-85
+  s_31292b8446cb85::t_fd7ce25df1e667 94-96
+  s_31292b8446cb85::t_0f9b3b08558a3f 1-7,10-48,50-68,86-93,97-116
+  s_31292b8446cb85::t_f6824c0430d670 8-9,49
+zed/languages/kotlin/overrides.scm
+  s_31292b8446cb85::t_17466476ee14fd 1-6
+zed/languages/kotlin/runnables.scm
+  s_31292b8446cb85::t_17466476ee14fd 1-125
+zed/languages/kotlin/injections.scm
+  s_31292b8446cb85::t_17466476ee14fd 1-5
+zed/src/lib.rs
+  s_31292b8446cb85::t_e11d0c7fd706a7 1-61
+zed/languages/kotlin/outline.scm
+  s_31292b8446cb85::t_17466476ee14fd 1-44
+zed/languages/kotlin/brackets.scm
+  s_31292b8446cb85::t_17466476ee14fd 1-13
+src/config.ts
+  s_31292b8446cb85::t_8dafadc2aa4b42 3-4
+  s_31292b8446cb85::t_f6824c0430d670 17,65
+zed/Cargo.toml
+  s_31292b8446cb85::t_f0f59fa54201c5 1-13
+src/server/modulesJson.ts
+  s_31292b8446cb85::t_f6824c0430d670 47-48,299
+zed/languages/kotlin/tasks.json
+  s_31292b8446cb85::t_cc364a24d17896 5-8,16-23,28-31,38-45,52-59
+  s_31292b8446cb85::t_17466476ee14fd 1-4,9-15,24-27,32-37,46-51,60-61
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/GoToDefinition.kt
+  s_31292b8446cb85::t_06a8f4070a1114 15,35,37-41,77,79,131-152,159-164
+  s_31292b8446cb85::t_4d7f921f203784 116-130,153-158,176-177,179-180
+  s_31292b8446cb85::t_a99c6b2675c48d 178
+zed/languages/kotlin/indents.scm
+  s_31292b8446cb85::t_17466476ee14fd 1-7
+gradle/koda.init.gradle
+  s_31292b8446cb85::t_5f2e9e3119a160 19,21-22,98,131-160
+zed/Cargo.lock
+  s_31292b8446cb85::t_8a0ecba236b9eb 1-845
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "132fc1d6f6cd4075855ead8c12d9e005b7bda783",
+  "prompts": {},
+  "sessions": {
+    "s_31292b8446cb85": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "392247d0-57ab-4782-a016-fc7579ba4c49",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "michaeltiket <michael.michael@tiket.com>"
+    }
+  }
+}
