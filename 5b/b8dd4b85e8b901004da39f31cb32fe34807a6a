@@ -1,0 +1,31 @@
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/compose/ComposeStability.kt
+  s_31292b8446cb85::t_6a242bbf7b856d 36
+README.md
+  s_31292b8446cb85::t_38f1893b85db89 7-8,20,144,180-181,191,209
+lsp/app/src/main/kotlin/org/kotlinlsp/actions/hover/Hover.kt
+  s_31292b8446cb85::t_771c850c9b4716 77
+package.json
+  s_31292b8446cb85::t_38f1893b85db89 250
+src/server/jvmArgs.ts
+  s_31292b8446cb85::t_771c850c9b4716 2
+src/ui/statusBar.ts
+  s_31292b8446cb85::t_771c850c9b4716 145
+src/config.ts
+  s_31292b8446cb85::t_771c850c9b4716 23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5bb8dd4b85e8b901004da39f31cb32fe34807a6a",
+  "prompts": {},
+  "sessions": {
+    "s_31292b8446cb85": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "392247d0-57ab-4782-a016-fc7579ba4c49",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "cyrax1800 <12585119+cyrax1800@users.noreply.github.com>"
+    }
+  }
+}
